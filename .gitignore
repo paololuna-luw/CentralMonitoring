@@ -1,0 +1,17 @@
+bin/
+obj/
+.tmpbuild/
+node_modules/
+dist/
+.angular/
+.vs/
+*.user
+*.suo
+logs/
+appsettings.Development.json
+appsettings.Local.json
+**/appsettings.Development.json
+**/appsettings.Local.json
+.env
+.env.*
+.dotnet-home/

@@ -1,0 +1,9 @@
+<Solution>
+  <Project Path="CentralMonitoring.Agent/CentralMonitoring.Agent.csproj" Id="81a947ee-ab13-4035-8b67-e13906c0904c" />
+  <Project Path="CentralMonitoring.Api/CentralMonitoring.Api.csproj" />
+  <Project Path="CentralMonitoring.CloudApi/CentralMonitoring.CloudApi.csproj" />
+  <Project Path="CentralMonitoring.Domain/CentralMonitoring.Domain.csproj" Id="17abde21-2280-4db9-9fca-6a459745d22d" />
+  <Project Path="CentralMonitoring.Infrastructure/CentralMonitoring.Infrastructure.csproj" Id="4e32fb27-538f-4201-b183-30da49576cf8" />
+  <Project Path="CentralMonitoring.Shared/CentralMonitoring.Shared.csproj" Id="a72278ff-0299-487a-b8de-92b480991247" />
+  <Project Path="CentralMonitoring.Worker/CentralMonitoring.Worker.csproj" Id="28108b7d-b73d-4ac3-a3e4-fa5b7a6fb8fc" />
+</Solution>
