@@ -27,6 +27,7 @@ Construir una capa cloud separada del monitoreo local para:
 - Estado: `dashboard movil compacto agregado`
 - Estado: `backend movil cerrado para APK MVP`
 - Estado: `administracion de usuarios por central agregada`
+- Estado: `CloudApi desplegado en Render y respondiendo Healthy`
 - Arquitectura definida.
 - Stack del MVP definido.
 - Flujo principal definido:
@@ -48,11 +49,12 @@ Construir una capa cloud separada del monitoreo local para:
 - `CloudApi` ya expone endpoints admin para asignar/listar/quitar usuarios por central.
 - `appsettings.json` versionados ya fueron saneados para GitHub; los valores reales quedan en `appsettings.Development.json` local y luego en variables de entorno en `Render`.
 - `Dockerfile` y `.dockerignore` agregados para desplegar `CentralMonitoring.CloudApi` en `Render` usando el repo completo.
+- `CloudApi` ya esta publicado en `Render` con URL publica: `https://centralmonitoring-cloudap.onrender.com`
 
 ## Linea de progreso actual
 
-- `Arquitectura definida + auth cerrada + sync base validado + backend movil/admin listo`
-- siguiente bloque: `deploy a Render + APK + FCM`
+- `Arquitectura definida + auth cerrada + sync base validado + backend movil/admin listo + deploy Render cerrado`
+- siguiente bloque: `sync Programa 1 -> Render + APK + FCM`
 
 ## Estado funcional actual
 
@@ -77,6 +79,7 @@ Hoy el `CloudApi` ya permite:
 - `InstanceId`: `f2f0f0c7-2a48-45f4-a067-6bd6f3a4fd2f`
 - `InstanceName`: `Programa 1 Local Paolo`
 - `Organization`: `Org Paolo Dev`
+- `CloudApi URL`: `https://centralmonitoring-cloudap.onrender.com`
 - usuario actual con acceso:
   - `paolo.luna.dev@gmail.com`
   - rol: `owner`
@@ -86,6 +89,7 @@ Hoy el `CloudApi` ya permite:
 - `CLOUD-API-ARQUITECTURA.md`
 - `CLOUD-API-MVP-RENDER-SUPABASE-FCM.md`
 - `ARQUITECTURA-CLOUD-LICENCIAS.md`
+- `APK-HANDOFF.md`
 
 ## Alcance del MVP cloud
 
@@ -286,7 +290,7 @@ Roles permitidos:
 ## Pendientes importantes
 
 - cargar en `Render` las variables de entorno reales (`Supabase`, `ConnectionStrings`, `ApiKey`)
-- desplegar `CloudApi` en `Render`
+- validar sync real de `Programa 1` contra la URL publica de `Render`
 - cambiar `Programa 1` a URL publica
 - integrar `FCM`
 - crear APK
@@ -331,6 +335,6 @@ Se considera cumplido cuando:
 
 ## Siguiente paso inmediato recomendado
 
-- Desplegar `CloudApi` en `Render`
-- Cambiar `Programa 1` a la URL publica
+- Reiniciar `Worker` apuntando a `https://centralmonitoring-cloudap.onrender.com`
+- Validar `heartbeat/snapshots/alerts` contra `Render`
 - Luego iniciar APK y `FCM`
