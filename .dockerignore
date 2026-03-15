@@ -1,0 +1,15 @@
+.git
+.gitignore
+.vs
+.tmpbuild
+.dotnet-home
+**/bin
+**/obj
+**/node_modules
+**/dist
+**/.angular
+**/logs
+**/appsettings.Development.json
+**/appsettings.Local.json
+.env
+.env.*

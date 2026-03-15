@@ -47,6 +47,7 @@ Construir una capa cloud separada del monitoreo local para:
 - `CloudApi` ya expone acciones moviles de `ack/resolve` y registro de `device-tokens`.
 - `CloudApi` ya expone endpoints admin para asignar/listar/quitar usuarios por central.
 - `appsettings.json` versionados ya fueron saneados para GitHub; los valores reales quedan en `appsettings.Development.json` local y luego en variables de entorno en `Render`.
+- `Dockerfile` y `.dockerignore` agregados para desplegar `CentralMonitoring.CloudApi` en `Render` usando el repo completo.
 
 ## Linea de progreso actual
 
