@@ -224,7 +224,7 @@ public class CloudSyncWorker : BackgroundService
         if (alert.MetricKey.StartsWith("snmp_", StringComparison.OrdinalIgnoreCase))
         {
             labels["source_type"] = "snmp";
-            labels["oid"] = _snmpMetrics.FirstOrDefault(m => string.Equals(m.Key, alert.MetricKey, StringComparison.OrdinalIgnoreCase))?.Oid;
+            labels["oid"] = ResolveSnmpOid(alert.MetricKey);
             if (!labels.ContainsKey("snmp_ip") && !string.IsNullOrWhiteSpace(alert.Host?.IpAddress))
                 labels["snmp_ip"] = alert.Host.IpAddress;
         }
@@ -301,5 +301,20 @@ public class CloudSyncWorker : BackgroundService
             _ when metricKey.StartsWith("snmp_ifInErrors_", StringComparison.OrdinalIgnoreCase) => "SNMP input errors",
             _ when metricKey.StartsWith("snmp_ifOutErrors_", StringComparison.OrdinalIgnoreCase) => "SNMP output errors",
             _ => metricKey
+        };
+
+    private static string? ResolveSnmpOid(string metricKey) =>
+        metricKey switch
+        {
+            "snmp_sysUpTime" => "1.3.6.1.2.1.1.3.0",
+            "snmp_ifInOctets_1" => "1.3.6.1.2.1.2.2.1.10.1",
+            "snmp_ifOutOctets_1" => "1.3.6.1.2.1.2.2.1.16.1",
+            "snmp_ifOperStatus_1" => "1.3.6.1.2.1.2.2.1.8.1",
+            "snmp_ifInErrors_1" => "1.3.6.1.2.1.2.2.1.14.1",
+            "snmp_ifOutErrors_1" => "1.3.6.1.2.1.2.2.1.20.1",
+            "snmp_ifAdminStatus_1" => "1.3.6.1.2.1.2.2.1.7.1",
+            "snmp_hrProcessorLoad_1" => "1.3.6.1.2.1.25.3.3.1.2.1",
+            "snmp_hrProcessorLoad_2" => "1.3.6.1.2.1.25.3.3.1.2.2",
+            _ => null
         };
 }
