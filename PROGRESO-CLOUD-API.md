@@ -50,6 +50,11 @@ Construir una capa cloud separada del monitoreo local para:
 - `appsettings.json` versionados ya fueron saneados para GitHub; los valores reales quedan en `appsettings.Development.json` local y luego en variables de entorno en `Render`.
 - `Dockerfile` y `.dockerignore` agregados para desplegar `CentralMonitoring.CloudApi` en `Render` usando el repo completo.
 - `CloudApi` ya esta publicado en `Render` con URL publica: `https://centralmonitoring-cloudap.onrender.com`
+- alertas moviles enriquecidas con:
+  - `metricDisplayName`
+  - `sourceType`
+  - `labelsJson`
+  - `reason`
 
 ## Linea de progreso actual
 
@@ -66,6 +71,7 @@ Hoy el `CloudApi` ya permite:
 - consulta de centrales asignadas al usuario
 - dashboard movil compacto
 - consulta de alertas moviles
+- consulta de alertas moviles con contexto SNMP/agente
 - `ack/resolve` de alertas cloud
 - registro/eliminacion de `device-tokens`
 - administracion de usuarios por central
@@ -233,6 +239,20 @@ Hoy el `CloudApi` ya permite:
 - `GET /api/v1/mobile/alerts`
 - `POST /api/v1/mobile/alerts/{cloudAlertId}/ack`
 - `POST /api/v1/mobile/alerts/{cloudAlertId}/resolve`
+
+Campos utiles nuevos en alertas moviles:
+
+- `metricDisplayName`
+- `sourceType` (`agent` o `snmp`)
+- `labelsJson`
+- `reason`
+
+Ejemplos de uso en APK:
+
+- si `sourceType = snmp`, mostrar `snmp_ip`, `oid`, `if_index`
+- si `metricKey = service_up`, mostrar `service`
+- si `metricKey = disk_used_pct`, mostrar `drive`
+- si `metricKey = net_rx_errors`, mostrar `iface`
 
 ### 6. Probar device token
 

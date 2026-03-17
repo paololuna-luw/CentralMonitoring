@@ -131,6 +131,46 @@ Cada central trae resumen compacto:
 - `warningAlerts`
 - `snapshotTimestampUtc`
 
+### `GET /api/v1/mobile/alerts`
+
+Cada alerta movil ahora trae tambien:
+
+- `metricDisplayName`
+- `sourceType`
+- `labelsJson`
+- `reason`
+
+`labelsJson` puede incluir, segun el origen:
+
+- SNMP:
+  - `snmp_ip`
+  - `oid`
+  - `if_index`
+  - `host_ip`
+- Agente:
+  - `service`
+  - `kind`
+  - `drive`
+  - `iface`
+  - `process`
+  - `pid`
+  - `host_ip`
+  - `host_type`
+
+Uso recomendado en UI:
+
+- titulo:
+  - `metricDisplayName`
+- subtitulo:
+  - `reason`
+- chips secundarios:
+  - `sourceType`
+  - `service`
+  - `iface`
+  - `drive`
+  - `snmp_ip`
+  - `oid`
+
 ## Pantallas MVP recomendadas
 
 1. Login

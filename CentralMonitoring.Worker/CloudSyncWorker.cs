@@ -1,6 +1,7 @@
 using System.Net.Http.Json;
 using System.Text.Json;
 using CentralMonitoring.Infrastructure.Persistence;
+using CentralMonitoring.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 
@@ -157,6 +158,8 @@ public class CloudSyncWorker : BackgroundService
             .Take(200)
             .ToListAsync(ct);
 
+        var latestSamples = await GetLatestSamplesForAlertsAsync(db, alerts, ct);
+
         var payload = new
         {
             alerts = alerts.Select(a => new
@@ -169,7 +172,7 @@ public class CloudSyncWorker : BackgroundService
                 status = a.IsResolved ? "Resolved" : "Open",
                 triggerValue = a.LastTriggerValue == 0 ? a.TriggerValue : a.LastTriggerValue,
                 threshold = a.Threshold,
-                labels = (object?)null,
+                labels = BuildAlertLabels(a, latestSamples),
                 openedAtUtc = a.CreatedAtUtc,
                 resolvedAtUtc = a.IsResolved ? a.LastTriggerAtUtc : (DateTime?)null
             }).ToList()
@@ -178,4 +181,125 @@ public class CloudSyncWorker : BackgroundService
         using var response = await http.PostAsJsonAsync($"api/v1/centrals/{_options.InstanceId}/alerts/sync", payload, JsonOptions, ct);
         response.EnsureSuccessStatusCode();
     }
+
+    private async Task<Dictionary<string, MetricSample>> GetLatestSamplesForAlertsAsync(MonitoringDbContext db, List<AlertEvent> alerts, CancellationToken ct)
+    {
+        var hostIds = alerts.Select(a => a.HostId).Where(id => id != Guid.Empty).Distinct().ToList();
+        var metricKeys = alerts.Select(a => a.MetricKey).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        if (hostIds.Count == 0 || metricKeys.Count == 0)
+            return new Dictionary<string, MetricSample>(StringComparer.OrdinalIgnoreCase);
+
+        var minTimestamp = alerts.Min(a => a.CreatedAtUtc).AddDays(-1);
+        var samples = await db.MetricSamples.AsNoTracking()
+            .Where(m => hostIds.Contains(m.HostId) &&
+                        metricKeys.Contains(m.MetricKey) &&
+                        m.TimestampUtc >= minTimestamp)
+            .OrderByDescending(m => m.TimestampUtc)
+            .ToListAsync(ct);
+
+        var latest = new Dictionary<string, MetricSample>(StringComparer.OrdinalIgnoreCase);
+        foreach (var sample in samples)
+        {
+            var key = BuildAlertLookupKey(sample.HostId, sample.MetricKey);
+            if (!latest.ContainsKey(key))
+                latest[key] = sample;
+        }
+
+        return latest;
+    }
+
+    private object BuildAlertLabels(AlertEvent alert, IReadOnlyDictionary<string, MetricSample> latestSamples)
+    {
+        var labels = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["host_ip"] = alert.Host?.IpAddress,
+            ["host_type"] = alert.Host?.Type,
+            ["host_tags"] = alert.Host?.Tags,
+            ["metric_display_name"] = BuildMetricDisplayName(alert.MetricKey)
+        };
+
+        if (TryGetLatestSample(alert, latestSamples, out var sample))
+            MergeJsonObject(labels, sample.LabelsJson);
+
+        if (alert.MetricKey.StartsWith("snmp_", StringComparison.OrdinalIgnoreCase))
+        {
+            labels["source_type"] = "snmp";
+            labels["oid"] = _snmpMetrics.FirstOrDefault(m => string.Equals(m.Key, alert.MetricKey, StringComparison.OrdinalIgnoreCase))?.Oid;
+            if (!labels.ContainsKey("snmp_ip") && !string.IsNullOrWhiteSpace(alert.Host?.IpAddress))
+                labels["snmp_ip"] = alert.Host.IpAddress;
+        }
+        else
+        {
+            labels["source_type"] = "agent";
+        }
+
+        if (TryParseSnmpIfIndex(alert.MetricKey, out var ifIndex))
+            labels["if_index"] = ifIndex;
+
+        return labels;
+    }
+
+    private static bool TryGetLatestSample(AlertEvent alert, IReadOnlyDictionary<string, MetricSample> latestSamples, out MetricSample sample)
+    {
+        return latestSamples.TryGetValue(BuildAlertLookupKey(alert.HostId, alert.MetricKey), out sample!);
+    }
+
+    private static string BuildAlertLookupKey(Guid hostId, string metricKey) => $"{hostId:N}:{metricKey}";
+
+    private static void MergeJsonObject(IDictionary<string, object?> target, string? labelsJson)
+    {
+        if (string.IsNullOrWhiteSpace(labelsJson))
+            return;
+
+        try
+        {
+            using var doc = JsonDocument.Parse(labelsJson);
+            if (doc.RootElement.ValueKind != JsonValueKind.Object)
+                return;
+
+            foreach (var property in doc.RootElement.EnumerateObject())
+                target[property.Name] = ConvertJsonValue(property.Value);
+        }
+        catch
+        {
+            // Ignore malformed labels and keep sync moving.
+        }
+    }
+
+    private static object? ConvertJsonValue(JsonElement value) =>
+        value.ValueKind switch
+        {
+            JsonValueKind.String => value.GetString(),
+            JsonValueKind.Number when value.TryGetInt64(out var i) => i,
+            JsonValueKind.Number when value.TryGetDouble(out var d) => d,
+            JsonValueKind.True => true,
+            JsonValueKind.False => false,
+            JsonValueKind.Object or JsonValueKind.Array => JsonSerializer.Deserialize<object>(value.GetRawText()),
+            _ => value.GetRawText()
+        };
+
+    private static bool TryParseSnmpIfIndex(string metricKey, out int ifIndex)
+    {
+        ifIndex = 0;
+        var lastUnderscore = metricKey.LastIndexOf('_');
+        if (lastUnderscore < 0 || lastUnderscore == metricKey.Length - 1)
+            return false;
+
+        return int.TryParse(metricKey[(lastUnderscore + 1)..], out ifIndex);
+    }
+
+    private static string BuildMetricDisplayName(string metricKey) =>
+        metricKey switch
+        {
+            "cpu_usage_pct" => "CPU usage",
+            "agent_cpu_usage_pct" => "Agent CPU usage",
+            "mem_used_pct" => "Memory usage",
+            "disk_used_pct" => "Disk usage",
+            "service_up" => "Critical service state",
+            "snmp_poll_failure" => "SNMP poll failure",
+            _ when metricKey.StartsWith("snmp_ifOperStatus_", StringComparison.OrdinalIgnoreCase) => "SNMP interface status",
+            _ when metricKey.StartsWith("snmp_ifInErrors_", StringComparison.OrdinalIgnoreCase) => "SNMP input errors",
+            _ when metricKey.StartsWith("snmp_ifOutErrors_", StringComparison.OrdinalIgnoreCase) => "SNMP output errors",
+            _ => metricKey
+        };
 }

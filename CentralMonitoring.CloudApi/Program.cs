@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using System.Text.Json;
 using CentralMonitoring.CloudApi.DTOs.Admin;
 using CentralMonitoring.CloudApi.DTOs.Alerts;
 using CentralMonitoring.CloudApi.DTOs.Auth;
@@ -304,10 +305,14 @@ app.MapGet("/api/v1/mobile/alerts", async (ClaimsPrincipal user, SupabaseRestCli
         hostId = a.HostId,
         hostName = a.HostName,
         metricKey = a.MetricKey,
+        metricDisplayName = BuildMetricDisplayName(a.MetricKey),
+        sourceType = BuildSourceType(a),
         severity = a.Severity,
         status = a.Status,
         triggerValue = a.TriggerValue,
         threshold = a.Threshold,
+        labelsJson = a.LabelsJson,
+        reason = BuildAlertReason(a),
         openedAtUtc = a.OpenedAtUtc,
         resolvedAtUtc = a.ResolvedAtUtc
     }));
@@ -331,10 +336,14 @@ app.MapPost("/api/v1/mobile/alerts/{cloudAlertId:guid}/ack", async (Guid cloudAl
             hostId = updated.HostId,
             hostName = updated.HostName,
             metricKey = updated.MetricKey,
+            metricDisplayName = BuildMetricDisplayName(updated.MetricKey),
+            sourceType = BuildSourceType(updated),
             severity = updated.Severity,
             status = updated.Status,
             triggerValue = updated.TriggerValue,
             threshold = updated.Threshold,
+            labelsJson = updated.LabelsJson,
+            reason = BuildAlertReason(updated),
             openedAtUtc = updated.OpenedAtUtc,
             resolvedAtUtc = updated.ResolvedAtUtc
         });
@@ -358,10 +367,14 @@ app.MapPost("/api/v1/mobile/alerts/{cloudAlertId:guid}/resolve", async (Guid clo
             hostId = updated.HostId,
             hostName = updated.HostName,
             metricKey = updated.MetricKey,
+            metricDisplayName = BuildMetricDisplayName(updated.MetricKey),
+            sourceType = BuildSourceType(updated),
             severity = updated.Severity,
             status = updated.Status,
             triggerValue = updated.TriggerValue,
             threshold = updated.Threshold,
+            labelsJson = updated.LabelsJson,
+            reason = BuildAlertReason(updated),
             openedAtUtc = updated.OpenedAtUtc,
             resolvedAtUtc = updated.ResolvedAtUtc
         });
@@ -457,10 +470,14 @@ app.MapGet("/api/v1/mobile/dashboard", async (ClaimsPrincipal user, SupabaseRest
                 hostId = a.HostId,
                 hostName = a.HostName,
                 metricKey = a.MetricKey,
+                metricDisplayName = BuildMetricDisplayName(a.MetricKey),
+                sourceType = BuildSourceType(a),
                 severity = a.Severity,
                 status = a.Status,
                 triggerValue = a.TriggerValue,
                 threshold = a.Threshold,
+                labelsJson = a.LabelsJson,
+                reason = BuildAlertReason(a),
                 openedAtUtc = a.OpenedAtUtc,
                 resolvedAtUtc = a.ResolvedAtUtc
             })
@@ -486,3 +503,95 @@ static bool IsSupportedCentralRole(string? role) =>
      role.Equals("admin", StringComparison.OrdinalIgnoreCase) ||
      role.Equals("operator", StringComparison.OrdinalIgnoreCase) ||
      role.Equals("readonly", StringComparison.OrdinalIgnoreCase));
+
+static string BuildSourceType(CloudAlertSummary alert)
+{
+    if (TryGetLabelString(alert, "source_type", out var sourceType) && !string.IsNullOrWhiteSpace(sourceType))
+        return sourceType!;
+
+    if (alert.MetricKey.StartsWith("snmp_", StringComparison.OrdinalIgnoreCase) || TryGetLabelString(alert, "snmp_ip", out _))
+        return "snmp";
+
+    return "agent";
+}
+
+static string BuildMetricDisplayName(string metricKey) =>
+    metricKey switch
+    {
+        "cpu_usage_pct" => "CPU usage",
+        "agent_cpu_usage_pct" => "Agent CPU usage",
+        "mem_used_pct" => "Memory usage",
+        "disk_used_pct" => "Disk usage",
+        "service_up" => "Critical service state",
+        "snmp_poll_failure" => "SNMP poll failure",
+        _ when metricKey.StartsWith("snmp_ifOperStatus_", StringComparison.OrdinalIgnoreCase) => "SNMP interface status",
+        _ when metricKey.StartsWith("snmp_ifInErrors_", StringComparison.OrdinalIgnoreCase) => "SNMP input errors",
+        _ when metricKey.StartsWith("snmp_ifOutErrors_", StringComparison.OrdinalIgnoreCase) => "SNMP output errors",
+        _ when metricKey.StartsWith("net_rx_errors", StringComparison.OrdinalIgnoreCase) => "Network RX errors",
+        _ when metricKey.StartsWith("net_tx_errors", StringComparison.OrdinalIgnoreCase) => "Network TX errors",
+        _ => metricKey
+    };
+
+static string BuildAlertReason(CloudAlertSummary alert)
+{
+    var trigger = FormatNumber(alert.TriggerValue);
+    var threshold = FormatNumber(alert.Threshold);
+    var hostName = string.IsNullOrWhiteSpace(alert.HostName) ? "device" : alert.HostName;
+
+    return alert.MetricKey switch
+    {
+        "mem_used_pct" => $"Memory usage {trigger}% exceeds threshold {threshold}% on {hostName}.",
+        "cpu_usage_pct" => $"CPU usage {trigger}% exceeds threshold {threshold}% on {hostName}.",
+        "agent_cpu_usage_pct" => $"Agent CPU usage {trigger}% exceeds threshold {threshold}% on {hostName}.",
+        "disk_used_pct" => $"Disk {GetLabelOrDefault(alert, "drive", "unknown")} usage {trigger}% exceeds threshold {threshold}% on {hostName}.",
+        "service_up" => $"Critical service '{GetLabelOrDefault(alert, "service", "unknown")}' is reported as down on {hostName}.",
+        "snmp_poll_failure" => $"SNMP polling failed for {GetLabelOrDefault(alert, "snmp_ip", hostName)}. Consecutive failures: {trigger}.",
+        _ when alert.MetricKey.StartsWith("snmp_ifOperStatus_", StringComparison.OrdinalIgnoreCase)
+            => $"SNMP interface {GetLabelOrDefault(alert, "if_index", GetMetricSuffix(alert.MetricKey))} reports status {trigger}; expected {threshold} on {hostName}.",
+        _ when alert.MetricKey.StartsWith("snmp_ifInErrors_", StringComparison.OrdinalIgnoreCase)
+            => $"SNMP interface {GetLabelOrDefault(alert, "if_index", GetMetricSuffix(alert.MetricKey))} has input errors ({trigger}) on {hostName}.",
+        _ when alert.MetricKey.StartsWith("snmp_ifOutErrors_", StringComparison.OrdinalIgnoreCase)
+            => $"SNMP interface {GetLabelOrDefault(alert, "if_index", GetMetricSuffix(alert.MetricKey))} has output errors ({trigger}) on {hostName}.",
+        _ when alert.MetricKey.StartsWith("net_rx_errors", StringComparison.OrdinalIgnoreCase)
+            => $"Network interface '{GetLabelOrDefault(alert, "iface", "unknown")}' reports RX errors ({trigger}) on {hostName}.",
+        _ when alert.MetricKey.StartsWith("net_tx_errors", StringComparison.OrdinalIgnoreCase)
+            => $"Network interface '{GetLabelOrDefault(alert, "iface", "unknown")}' reports TX errors ({trigger}) on {hostName}.",
+        _ => $"Metric '{BuildMetricDisplayName(alert.MetricKey)}' triggered on {hostName}. Value {trigger}, threshold {threshold}."
+    };
+}
+
+static string GetMetricSuffix(string metricKey)
+{
+    var index = metricKey.LastIndexOf('_');
+    return index >= 0 && index < metricKey.Length - 1 ? metricKey[(index + 1)..] : metricKey;
+}
+
+static string FormatNumber(double? value) =>
+    value.HasValue ? value.Value.ToString("0.##") : "n/a";
+
+static string GetLabelOrDefault(CloudAlertSummary alert, string propertyName, string fallback)
+{
+    return TryGetLabelString(alert, propertyName, out var value) && !string.IsNullOrWhiteSpace(value)
+        ? value!
+        : fallback;
+}
+
+static bool TryGetLabelString(CloudAlertSummary alert, string propertyName, out string? value)
+{
+    value = null;
+    if (alert.LabelsJson is null || alert.LabelsJson.Value.ValueKind != JsonValueKind.Object)
+        return false;
+
+    if (!alert.LabelsJson.Value.TryGetProperty(propertyName, out var property))
+        return false;
+
+    value = property.ValueKind switch
+    {
+        JsonValueKind.String => property.GetString(),
+        JsonValueKind.Number => property.ToString(),
+        JsonValueKind.True => "true",
+        JsonValueKind.False => "false",
+        _ => property.GetRawText()
+    };
+    return true;
+}

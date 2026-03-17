@@ -482,6 +482,8 @@ public class CloudAlertSummary
     public double? TriggerValue { get; set; }
     [JsonPropertyName("threshold")]
     public double? Threshold { get; set; }
+    [JsonPropertyName("labels_json")]
+    public JsonElement? LabelsJson { get; set; }
     [JsonPropertyName("opened_at_utc")]
     public DateTime OpenedAtUtc { get; set; }
     [JsonPropertyName("resolved_at_utc")]
