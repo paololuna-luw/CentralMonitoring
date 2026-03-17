@@ -31,6 +31,10 @@ namespace CentralMonitoring.Infrastructure.Migrations
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<string>("ContextKey")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
                     b.Property<Guid>("HostId")
                         .HasColumnType("uuid");
 
@@ -42,6 +46,10 @@ namespace CentralMonitoring.Infrastructure.Migrations
 
                     b.Property<double>("LastTriggerValue")
                         .HasColumnType("double precision");
+
+                    b.Property<string>("LabelsJson")
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)");
 
                     b.Property<string>("MetricKey")
                         .IsRequired()
@@ -72,7 +80,7 @@ namespace CentralMonitoring.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("HostId", "MetricKey", "IsResolved");
+                    b.HasIndex("HostId", "MetricKey", "ContextKey", "IsResolved");
 
                     b.ToTable("AlertEvents");
                 });

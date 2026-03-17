@@ -221,6 +221,8 @@ public class CloudSyncWorker : BackgroundService
         if (TryGetLatestSample(alert, latestSamples, out var sample))
             MergeJsonObject(labels, sample.LabelsJson);
 
+        MergeJsonObject(labels, alert.LabelsJson);
+
         if (alert.MetricKey.StartsWith("snmp_", StringComparison.OrdinalIgnoreCase))
         {
             labels["source_type"] = "snmp";

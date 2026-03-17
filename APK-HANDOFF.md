@@ -23,6 +23,10 @@ Flujo correcto:
   - `snapshots`
   - `alerts`
 - endpoints moviles funcionando desde internet
+- flujo de alertas revisado extremo a extremo:
+  - `AlertEvent local -> CloudSyncWorker -> CloudApi -> /mobile/alerts`
+  - alertas activas viajan con contexto persistido (`labelsJson`)
+  - el `CloudApi` devuelve `reason` calculado para UI movil
 
 ## Central de prueba actual
 
@@ -31,6 +35,29 @@ Flujo correcto:
 - `Organization`: `Org Paolo Dev`
 - usuario owner de prueba:
   - `paolo.luna.dev@gmail.com`
+
+### Estado operativo revisado de la central de prueba
+
+- hosts registrados:
+  - `Pruebita` (`127.0.0.1`, Windows)
+  - `AP-EPIS-N-P02` (`10.3.23.32`, Network)
+  - `AP-EPIS-N-P03` (`10.3.23.38`, Network)
+  - `AP-EPIS-N-P04` (`10.3.23.34`, Network)
+- alertas activas locales vistas al revisar:
+  - `Pruebita`:
+    - `mem_used_pct` critica
+    - `cpu_usage_pct` critica
+- equipos sin alertas activas actuales:
+  - `AP-EPIS-N-P02`
+  - `AP-EPIS-N-P03`
+  - `AP-EPIS-N-P04`
+
+Interpretacion recomendada para el APK:
+
+- si un dispositivo no aparece en alertas activas cloud:
+  - tratarlo como `sin alertas activas`
+  - no mostrarlo como fallo
+- `mobile/alerts` representa problemas actuales cloud, no historial cerrado
 
 ## Arquitectura minima que el APK debe asumir
 
@@ -140,6 +167,23 @@ Cada alerta movil ahora trae tambien:
 - `labelsJson`
 - `reason`
 
+Importante:
+
+- `GET /api/v1/mobile/alerts` devuelve solo alertas `Open` o `Acked`
+- no devuelve alertas `Resolved`
+- para estado actual del sistema, este endpoint es la referencia operativa
+
+El backend ahora persiste contexto propio de cada alerta:
+
+- `contextKey`
+- `labelsJson`
+
+Eso evita mezclar en una sola alerta cosas distintas del mismo host, por ejemplo:
+
+- discos distintos con `disk_used_pct`
+- servicios distintos con `service_up`
+- interfaces distintas con metricas `snmp_if*`
+
 `labelsJson` puede incluir, segun el origen:
 
 - SNMP:
@@ -147,6 +191,7 @@ Cada alerta movil ahora trae tambien:
   - `oid`
   - `if_index`
   - `host_ip`
+  - `failure_reason` para `snmp_poll_failure`
 - Agente:
   - `service`
   - `kind`
@@ -170,6 +215,24 @@ Uso recomendado en UI:
   - `drive`
   - `snmp_ip`
   - `oid`
+
+Regla de interpretacion para el APK:
+
+- usar `reason` como texto principal de la incidencia
+- usar `metricDisplayName` como titulo corto
+- usar `labelsJson` solo para detalle/metadata
+- no intentar reconstruir la razon solo con `metricKey` si `reason` ya viene informado
+
+Ejemplos reales de razon esperada:
+
+- `mem_used_pct`
+  - `Memory usage 90.09% exceeds threshold 90% on Pruebita.`
+- `cpu_usage_pct`
+  - `CPU usage 97.31% exceeds threshold 85% on Pruebita.`
+- `snmp_poll_failure`
+  - `SNMP polling failed for 10.3.23.32. status X ... Consecutive failures: Y.`
+- `service_up`
+  - `Critical service 'Spooler' is reported as down on HostName.`
 
 ## Pantallas MVP recomendadas
 
@@ -201,6 +264,25 @@ Uso recomendado en UI:
 - cliente HTTP base con bearer token
 - manejo de expiracion de token
 - luego integrar `FCM`
+
+## Requisito tecnico nuevo para alertas con contexto
+
+Se agrego migracion local para persistir contexto real de cada alerta:
+
+- `20260317193000_AddAlertContextFields`
+
+Antes de validar completamente el bloque cloud/apk con contexto, aplicar:
+
+```powershell
+dotnet ef database update --project CentralMonitoring.Infrastructure --startup-project CentralMonitoring.Api
+```
+
+Luego:
+
+1. reiniciar `CentralMonitoring.Api`
+2. reiniciar `CentralMonitoring.Worker`
+3. volver a sincronizar hacia `CloudApi`
+4. redeploy de `CloudApi` si quieres que `Render` use el ajuste de `reason` para `snmp_poll_failure`
 
 ## Recomendacion tecnica
 

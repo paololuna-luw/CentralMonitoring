@@ -43,7 +43,10 @@
 - Polling SNMP v2c operativo.
 - Insercion de metricas SNMP en `MetricSamples`.
 - Evaluacion de reglas genericas por ventana (`windowMinutes` + operador + threshold).
-- Generacion de alertas por reglas y cooldown de alertas.
+- Generacion de alertas por reglas con consolidacion:
+  - una sola alerta abierta por `hostId + metricKey`
+  - si el problema persiste, se actualizan `lastTriggerAtUtc`, `lastTriggerValue` y `occurrences`
+  - ya no se crean filas nuevas por cada re-disparo del mismo problema abierto.
 - Seguimiento de estado SNMP por target:
   - `ConsecutiveFailures`
   - `LastSuccessUtc`
@@ -58,6 +61,10 @@
 - CRUD de Agentes y Targets desde interfaz.
 - Targets con separacion explicita: `Nombre`, `IP`, `HostId`, `HostName`.
 - Alertas con resumen por dispositivo y detalle de `Nombre equipo`, `HostId`, `IP host`.
+- Alertas separadas en:
+  - `Alertas activas`
+  - `Historial agrupado`
+- Historial agrupado por `host + metricKey` para evitar listados eternos del mismo problema.
 - Auto-refresh sin F5:
   - Targets: 8s
   - Agentes: 9s

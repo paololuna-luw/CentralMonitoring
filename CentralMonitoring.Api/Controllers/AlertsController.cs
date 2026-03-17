@@ -33,6 +33,8 @@ public class AlertsController : ControllerBase
                 Id = a.Id,
                 HostId = a.HostId,
                 MetricKey = a.MetricKey,
+                ContextKey = a.ContextKey,
+                LabelsJson = a.LabelsJson,
                 TriggerValue = a.TriggerValue,
                 LastTriggerValue = a.LastTriggerValue,
                 Threshold = a.Threshold,

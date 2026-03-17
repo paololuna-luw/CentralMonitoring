@@ -5,6 +5,8 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using SnmpSharpNet;
 using System.Text.Json;
+using System.Linq;
+using System.Text;
 
 namespace CentralMonitoring.Worker;
 
@@ -13,7 +15,6 @@ public class Worker : BackgroundService
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly ILogger<Worker> _logger;
     private readonly ILoggerFactory _loggerFactory;
-    private readonly TimeSpan _cooldown;
     private readonly TimeSpan _snmpPollInterval;
     private readonly List<SnmpMetricConfig> _snmpMetrics;
     private DateTime _nextSnmpPollUtc;
@@ -33,9 +34,6 @@ public class Worker : BackgroundService
         _logger = logger;
         _loggerFactory = loggerFactory;
         _httpClientFactory = httpClientFactory;
-        var minutes = config.GetValue<int?>("Alerting:CooldownMinutes") ?? 10;
-        _cooldown = TimeSpan.FromMinutes(minutes);
-
         var pollSeconds = config.GetValue<int?>("Snmp:PollIntervalSeconds") ?? 60;
         _snmpPollInterval = TimeSpan.FromSeconds(pollSeconds);
         _nextSnmpPollUtc = DateTime.UtcNow;
@@ -86,75 +84,20 @@ public class Worker : BackgroundService
 
                 foreach (var sample in highCpuSamples)
                 {
-                    var existing = await db.AlertEvents.FirstOrDefaultAsync(a =>
-                        a.HostId == sample.HostId &&
-                        a.MetricKey == sample.MetricKey &&
-                        !a.IsResolved,
+                    await CreateOrUpdateAlert(
+                        db,
+                        sample.HostId,
+                        sample.MetricKey,
+                        sample.Value,
+                        90,
+                        "Critical",
+                        sample.LabelsJson,
                         stoppingToken);
-
-                    var now = DateTime.UtcNow;
-
-                    if (existing is null)
-                    {
-                        var alert = new AlertEvent
-                        {
-                            HostId = sample.HostId,
-                            MetricKey = sample.MetricKey,
-                            TriggerValue = sample.Value,
-                            LastTriggerValue = sample.Value,
-                            Threshold = 90,
-                            Severity = "Critical",
-                            Occurrences = 1,
-                            CreatedAtUtc = now,
-                            LastTriggerAtUtc = now
-                        };
-
-                        db.AlertEvents.Add(alert);
-
-                        _logger.LogWarning(
-                            "ALERT CREATED: Host {HostId} CPU {Value}",
-                            sample.HostId,
-                            sample.Value);
-                    }
-                    else
-                    {
-                        var elapsed = now - existing.LastTriggerAtUtc;
-                        if (elapsed < _cooldown)
-                        {
-                            existing.LastTriggerAtUtc = now;
-                            existing.LastTriggerValue = sample.Value;
-                            existing.Occurrences += 1;
-                            _logger.LogInformation(
-                                "ALERT UPDATED: Host {HostId} CPU {Value} Occurrences {Occurrences}",
-                                sample.HostId,
-                                sample.Value,
-                                existing.Occurrences);
-                        }
-                        else
-                        {
-                            var alert = new AlertEvent
-                            {
-                                HostId = sample.HostId,
-                                MetricKey = sample.MetricKey,
-                                TriggerValue = sample.Value,
-                                LastTriggerValue = sample.Value,
-                                Threshold = 90,
-                                Severity = "Critical",
-                                Occurrences = 1,
-                                CreatedAtUtc = now,
-                                LastTriggerAtUtc = now
-                            };
-                            db.AlertEvents.Add(alert);
-
-                            _logger.LogWarning(
-                                "ALERT RE-TRIGGERED after cooldown: Host {HostId} CPU {Value}",
-                            sample.HostId,
-                            sample.Value);
-                        }
-                    }
                 }
 
                 await db.SaveChangesAsync(stoppingToken);
+
+                await MergeDuplicateOpenAlertsAsync(db, stoppingToken);
 
                 // Rules evaluation
                 await EvaluateRules(db, stoppingToken);
@@ -323,6 +266,7 @@ public class Worker : BackgroundService
                 target.ConsecutiveFailures,
                 0,
                 severity,
+                BuildSnmpFailureLabels(target, reason),
                 ct);
         }
     }
@@ -371,7 +315,7 @@ public class Worker : BackgroundService
             if (hostId == Guid.Empty && rule.HostId.HasValue && rule.HostId != Guid.Empty)
                 hostId = rule.HostId.Value;
 
-            await CreateOrUpdateAlert(db, hostId, sample.MetricKey, sample.Value, rule.Threshold, rule.Severity, ct);
+            await CreateOrUpdateAlert(db, hostId, sample.MetricKey, sample.Value, rule.Threshold, rule.Severity, sample.LabelsJson, ct);
         }
 
         await db.SaveChangesAsync(ct);
@@ -396,11 +340,14 @@ public class Worker : BackgroundService
         double triggerValue,
         double threshold,
         string severity,
+        string? labelsJson,
         CancellationToken ct)
     {
+        var contextKey = BuildAlertContextKey(labelsJson);
         var existing = await db.AlertEvents.FirstOrDefaultAsync(a =>
             a.HostId == hostId &&
             a.MetricKey == metricKey &&
+            a.ContextKey == contextKey &&
             !a.IsResolved,
             ct);
 
@@ -412,6 +359,8 @@ public class Worker : BackgroundService
             {
                 HostId = hostId,
                 MetricKey = metricKey,
+                ContextKey = contextKey,
+                LabelsJson = labelsJson,
                 TriggerValue = triggerValue,
                 LastTriggerValue = triggerValue,
                 Threshold = threshold,
@@ -427,43 +376,158 @@ public class Worker : BackgroundService
         }
         else
         {
-            var elapsed = now - existing.LastTriggerAtUtc;
-            if (elapsed < _cooldown)
-            {
-                existing.LastTriggerAtUtc = now;
-                existing.LastTriggerValue = triggerValue;
-                existing.Occurrences += 1;
-                _logger.LogInformation(
-                    "ALERT UPDATED: Host {HostId} {Metric} {Value} Occurrences {Occurrences}",
-                    hostId,
-                    metricKey,
-                    triggerValue,
-                    existing.Occurrences);
-            }
-            else
-            {
-                var alert = new AlertEvent
-                {
-                    HostId = hostId,
-                    MetricKey = metricKey,
-                    TriggerValue = triggerValue,
-                    LastTriggerValue = triggerValue,
-                    Threshold = threshold,
-                    Severity = severity,
-                    Occurrences = 1,
-                    CreatedAtUtc = now,
-                    LastTriggerAtUtc = now
-                };
-                db.AlertEvents.Add(alert);
-
-                _logger.LogWarning(
-                    "ALERT RE-TRIGGERED after cooldown: Host {HostId} {Metric} {Value}",
-                    hostId,
-                    metricKey,
-                    triggerValue);
-            }
+            existing.LastTriggerAtUtc = now;
+            existing.LastTriggerValue = triggerValue;
+            existing.Threshold = threshold;
+            existing.Severity = GetHigherSeverity(existing.Severity, severity);
+            if (!string.IsNullOrWhiteSpace(labelsJson))
+                existing.LabelsJson = labelsJson;
+            existing.Occurrences += 1;
+            _logger.LogInformation(
+                "ALERT UPDATED: Host {HostId} {Metric} {Value} Occurrences {Occurrences}",
+                hostId,
+                metricKey,
+                triggerValue,
+                existing.Occurrences);
         }
     }
+
+    private async Task MergeDuplicateOpenAlertsAsync(MonitoringDbContext db, CancellationToken ct)
+    {
+        var openAlerts = await db.AlertEvents
+            .Where(a => !a.IsResolved)
+            .OrderBy(a => a.CreatedAtUtc)
+            .ToListAsync(ct);
+
+        var duplicateGroups = openAlerts
+            .GroupBy(a => new { a.HostId, a.MetricKey, a.ContextKey })
+            .Where(g => g.Count() > 1)
+            .ToList();
+
+        if (duplicateGroups.Count == 0)
+            return;
+
+        foreach (var group in duplicateGroups)
+        {
+            var ordered = group
+                .OrderBy(a => a.CreatedAtUtc)
+                .ThenBy(a => a.Id)
+                .ToList();
+
+            var primary = ordered[0];
+            var latest = ordered
+                .OrderByDescending(a => a.LastTriggerAtUtc)
+                .ThenByDescending(a => a.CreatedAtUtc)
+                .First();
+
+            primary.CreatedAtUtc = ordered.Min(a => a.CreatedAtUtc);
+            primary.LastTriggerAtUtc = latest.LastTriggerAtUtc;
+            primary.LastTriggerValue = latest.LastTriggerValue;
+            primary.Threshold = latest.Threshold;
+            primary.ContextKey = primary.ContextKey ?? latest.ContextKey;
+            primary.LabelsJson = string.IsNullOrWhiteSpace(primary.LabelsJson) ? latest.LabelsJson : primary.LabelsJson;
+            primary.Severity = ordered
+                .Select(a => a.Severity)
+                .Aggregate(primary.Severity, GetHigherSeverity);
+            primary.Occurrences = ordered.Sum(a => Math.Max(1, a.Occurrences));
+            primary.DispatchAttempts = ordered.Max(a => a.DispatchAttempts);
+            primary.DispatchedAtUtc = ordered
+                .Where(a => a.DispatchedAtUtc.HasValue)
+                .Select(a => a.DispatchedAtUtc)
+                .OrderBy(v => v)
+                .FirstOrDefault();
+
+            var duplicates = ordered.Skip(1).ToList();
+            if (duplicates.Count > 0)
+            {
+                db.AlertEvents.RemoveRange(duplicates);
+            }
+        }
+
+        await db.SaveChangesAsync(ct);
+        _logger.LogInformation("Merged {Groups} duplicate open alert groups.", duplicateGroups.Count);
+    }
+
+    private static string GetHigherSeverity(string left, string right)
+    {
+        return SeverityRank(right) > SeverityRank(left) ? right : left;
+    }
+
+    private static int SeverityRank(string severity)
+    {
+        var normalized = (severity ?? string.Empty).Trim().ToLowerInvariant();
+        if (normalized.Contains("critical")) return 3;
+        if (normalized.Contains("warn")) return 2;
+        if (normalized.Contains("info")) return 1;
+        return 0;
+    }
+
+    private static string BuildSnmpFailureLabels(SnmpTarget target, string reason)
+    {
+        var labels = new Dictionary<string, object?>
+        {
+            ["source_type"] = "snmp",
+            ["snmp_ip"] = target.IpAddress,
+            ["failure_reason"] = reason
+        };
+
+        return JsonSerializer.Serialize(labels);
+    }
+
+    private static string? BuildAlertContextKey(string? labelsJson)
+    {
+        if (string.IsNullOrWhiteSpace(labelsJson))
+            return null;
+
+        try
+        {
+            using var doc = JsonDocument.Parse(labelsJson);
+            return CanonicalizeJson(doc.RootElement);
+        }
+        catch
+        {
+            return labelsJson;
+        }
+    }
+
+    private static string CanonicalizeJson(JsonElement element)
+    {
+        var sb = new StringBuilder();
+        WriteCanonicalJson(element, sb);
+        return sb.ToString();
+    }
+
+    private static void WriteCanonicalJson(JsonElement element, StringBuilder sb)
+    {
+        switch (element.ValueKind)
+        {
+            case JsonValueKind.Object:
+                sb.Append('{');
+                var properties = element.EnumerateObject().OrderBy(p => p.Name, StringComparer.Ordinal).ToList();
+                for (var i = 0; i < properties.Count; i++)
+                {
+                    if (i > 0) sb.Append(',');
+                    sb.Append('"').Append(properties[i].Name).Append('"').Append(':');
+                    WriteCanonicalJson(properties[i].Value, sb);
+                }
+                sb.Append('}');
+                break;
+            case JsonValueKind.Array:
+                sb.Append('[');
+                var index = 0;
+                foreach (var item in element.EnumerateArray())
+                {
+                    if (index++ > 0) sb.Append(',');
+                    WriteCanonicalJson(item, sb);
+                }
+                sb.Append(']');
+                break;
+            default:
+                sb.Append(element.GetRawText());
+                break;
+        }
+    }
+
     private async Task<Guid> GetOrCreateHostForTarget(MonitoringDbContext db, SnmpTarget target, CancellationToken ct)
     {
         // Try to find existing host by IP

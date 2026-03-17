@@ -8,6 +8,8 @@ public class AlertEvent
     public Host Host { get; set; } = null!;
 
     public string MetricKey { get; set; } = null!;
+    public string? ContextKey { get; set; }
+    public string? LabelsJson { get; set; }
 
     public double TriggerValue { get; set; }
     public double LastTriggerValue { get; set; }

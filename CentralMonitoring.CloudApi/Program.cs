@@ -545,7 +545,7 @@ static string BuildAlertReason(CloudAlertSummary alert)
         "agent_cpu_usage_pct" => $"Agent CPU usage {trigger}% exceeds threshold {threshold}% on {hostName}.",
         "disk_used_pct" => $"Disk {GetLabelOrDefault(alert, "drive", "unknown")} usage {trigger}% exceeds threshold {threshold}% on {hostName}.",
         "service_up" => $"Critical service '{GetLabelOrDefault(alert, "service", "unknown")}' is reported as down on {hostName}.",
-        "snmp_poll_failure" => $"SNMP polling failed for {GetLabelOrDefault(alert, "snmp_ip", hostName)}. Consecutive failures: {trigger}.",
+        "snmp_poll_failure" => $"SNMP polling failed for {GetLabelOrDefault(alert, "snmp_ip", hostName)}. {GetLabelOrDefault(alert, "failure_reason", "No extra reason reported.")} Consecutive failures: {trigger}.",
         _ when alert.MetricKey.StartsWith("snmp_ifOperStatus_", StringComparison.OrdinalIgnoreCase)
             => $"SNMP interface {GetLabelOrDefault(alert, "if_index", GetMetricSuffix(alert.MetricKey))} reports status {trigger}; expected {threshold} on {hostName}.",
         _ when alert.MetricKey.StartsWith("snmp_ifInErrors_", StringComparison.OrdinalIgnoreCase)

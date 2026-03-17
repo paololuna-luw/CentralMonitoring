@@ -17,7 +17,8 @@
   - `net_rx_bytes_total`, `net_tx_bytes_total`, `net_rx_bytes_per_sec`, `net_tx_bytes_per_sec` (por interfaz)
   - `net_rx_errors`, `net_tx_errors`, `net_rx_drops`, `net_tx_drops` (por interfaz)
   - `proc_cpu_pct`, `proc_mem_mb` (top N procesos)
-  - `service_up` (servicios críticos Windows/systemd configurables)
+- `service_up` (servicios críticos Windows/systemd configurables)
+- `service_up` queda sin servicios por defecto en configuracion base; solo debe activarse cuando se definan servicios criticos explicitamente
   - `uptime_seconds`
   - `agent_heartbeat`
 - Programa 1 ya esta listo para recibir ingesta del agente por API.

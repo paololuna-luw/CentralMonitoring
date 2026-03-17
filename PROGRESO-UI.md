@@ -19,6 +19,9 @@
 - Metricas: selector de target + auto refresh configurable (off/15s/30s/60s) + estado de frescura por `freshMinutes`.
 - Reglas: edicion inline por fila (`PATCH`) incluyendo `operator`, `threshold`, `windowMinutes`, `severity`, `snmpIp`, `enabled`.
 - Alertas: filtros por severidad/fecha, busqueda por `metricKey`/`hostId` y feedback visual al resolver.
+- Alertas: vista operativa pura. Solo muestra `alertas activas`.
+- Alertas activas: una tarjeta por problema abierto, mostrando `triggerValue`, `lastTriggerValue`, `lastTriggerAtUtc` y `occurrences`.
+- Historial: se retira de la vista principal `/alerts` para no mezclar incidentes resueltos con estado actual.
 - Targets UX operativa: `lastSuccessUtc`, `lastFailureUtc`, `consecutiveFailures`, estado visual reforzado y confirmacion de delete con modal.
 - Reglas UX: validaciones en create/edit (`operator`, `windowMinutes > 0`, `severity`), estado dirty por fila y accion de cancelar cambios.
 - Pulido visual: toasts globales, skeleton loaders reutilizables y empty states mejorados en vistas principales.

@@ -70,6 +70,12 @@ public class MonitoringDbContext : DbContext
                 .HasMaxLength(120)
                 .IsRequired();
 
+            e.Property(a => a.ContextKey)
+                .HasMaxLength(2000);
+
+            e.Property(a => a.LabelsJson)
+                .HasMaxLength(4000);
+
             e.Property(a => a.Severity)
                 .HasMaxLength(50)
                 .IsRequired();
@@ -88,7 +94,7 @@ public class MonitoringDbContext : DbContext
                 .HasForeignKey(a => a.HostId)
                 .OnDelete(DeleteBehavior.Cascade);
 
-            e.HasIndex(a => new { a.HostId, a.MetricKey, a.IsResolved });
+            e.HasIndex(a => new { a.HostId, a.MetricKey, a.ContextKey, a.IsResolved });
         });
 
         modelBuilder.Entity<SnmpTarget>(e =>

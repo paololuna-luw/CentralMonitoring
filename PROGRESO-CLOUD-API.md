@@ -55,6 +55,10 @@ Construir una capa cloud separada del monitoreo local para:
   - `sourceType`
   - `labelsJson`
   - `reason`
+- revision del flujo de alertas completada:
+  - contexto real persistido por alerta
+  - sync cloud usando `labelsJson` propio de la alerta
+  - `CloudApi` devolviendo razon explicita para consumo movil
 
 ## Linea de progreso actual
 
@@ -79,6 +83,13 @@ Hoy el `CloudApi` ya permite:
   - `heartbeat`
   - `snapshots`
   - `alerts`
+- alertas moviles con contexto tecnico suficiente para explicar por que disparo:
+  - `service`
+  - `drive`
+  - `iface`
+  - `snmp_ip`
+  - `oid`
+  - `failure_reason`
 
 ## Central de prueba actual
 
@@ -247,12 +258,39 @@ Campos utiles nuevos en alertas moviles:
 - `labelsJson`
 - `reason`
 
+Comportamiento operativo actual de `GET /api/v1/mobile/alerts`:
+
+- devuelve solo alertas `Open` o `Acked`
+- no devuelve alertas `Resolved`
+- es el endpoint correcto para saber el estado actual de una central
+- si un dispositivo no aparece ahi, desde el punto de vista de alertas cloud esta sin alertas activas
+
+El flujo correcto ahora es:
+
+1. `Programa 1` crea alerta local
+2. la alerta guarda `ContextKey` y `LabelsJson`
+3. `CloudSyncWorker` sincroniza ese contexto al cloud
+4. `CloudApi` devuelve `reason` y `labelsJson` al movil
+
+Con eso se evita mezclar:
+
+- varios discos del mismo host
+- varios servicios del mismo host
+- varias interfaces SNMP del mismo host
+
 Ejemplos de uso en APK:
 
 - si `sourceType = snmp`, mostrar `snmp_ip`, `oid`, `if_index`
 - si `metricKey = service_up`, mostrar `service`
 - si `metricKey = disk_used_pct`, mostrar `drive`
 - si `metricKey = net_rx_errors`, mostrar `iface`
+
+Ejemplos de razon que el backend ya entrega:
+
+- `Memory usage 90.09% exceeds threshold 90% on Pruebita.`
+- `CPU usage 97.31% exceeds threshold 85% on Pruebita.`
+- `Critical service 'Spooler' is reported as down on HostName.`
+- `SNMP polling failed for 10.3.23.32. <failure_reason>. Consecutive failures: Y.`
 
 ### 6. Probar device token
 
@@ -314,6 +352,30 @@ Roles permitidos:
 - cambiar `Programa 1` a URL publica
 - integrar `FCM`
 - crear APK
+
+## Ajuste tecnico aplicado para contexto de alertas
+
+Se agrego migracion local:
+
+- `20260317193000_AddAlertContextFields`
+
+Objetivo:
+
+- guardar `ContextKey`
+- guardar `LabelsJson`
+- deduplicar alertas por contexto real y no solo por `metricKey`
+
+Aplicar:
+
+```powershell
+dotnet ef database update --project CentralMonitoring.Infrastructure --startup-project CentralMonitoring.Api
+```
+
+Luego:
+
+1. reiniciar `CentralMonitoring.Api`
+2. reiniciar `CentralMonitoring.Worker`
+3. para cloud publico, hacer `git push` y redeploy de `Render`
 
 ### Fase 4 - Integracion con Programa 1
 
