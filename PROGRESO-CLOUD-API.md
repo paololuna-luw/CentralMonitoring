@@ -264,6 +264,8 @@ Comportamiento operativo actual de `GET /api/v1/mobile/alerts`:
 - no devuelve alertas `Resolved`
 - es el endpoint correcto para saber el estado actual de una central
 - si un dispositivo no aparece ahi, desde el punto de vista de alertas cloud esta sin alertas activas
+- ademas filtra alertas abiertas pero estancadas/viejas para que el movil no reciba basura historica
+- ademas deduplica por contexto operativo para no listar el mismo problema repetido
 
 El flujo correcto ahora es:
 

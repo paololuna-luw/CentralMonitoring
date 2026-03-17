@@ -296,7 +296,7 @@ app.MapGet("/api/v1/mobile/alerts", async (ClaimsPrincipal user, SupabaseRestCli
     var userId = GetRequiredUserId(user);
     if (userId is null) return Results.Unauthorized();
 
-    var alerts = await supabase.GetUserAlertsAsync(userId.Value, ct);
+    var alerts = await supabase.GetUserCurrentAlertsAsync(userId.Value, ct);
     return Results.Ok(alerts.Select(a => new
     {
         id = a.Id,
@@ -424,7 +424,7 @@ app.MapGet("/api/v1/mobile/dashboard", async (ClaimsPrincipal user, SupabaseRest
     if (profile is null) return Results.NotFound(new { message = "User not found in app_users." });
 
     var centrals = await supabase.GetUserCentralsAsync(userId.Value, ct);
-    var alerts = await supabase.GetUserAlertsAsync(userId.Value, ct);
+    var alerts = await supabase.GetUserCurrentAlertsAsync(userId.Value, ct);
 
     var centralCards = new List<object>(centrals.Count);
     foreach (var central in centrals)

@@ -20,6 +20,7 @@ public class SupabaseRestClient
     private readonly HttpClient _httpClient;
     private readonly SupabaseOptions _options;
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
+    private static readonly TimeSpan CurrentAlertFreshness = TimeSpan.FromHours(6);
 
     public SupabaseRestClient(HttpClient httpClient, IOptions<SupabaseOptions> options)
     {
@@ -164,6 +165,22 @@ public class SupabaseRestClient
         return await _httpClient.GetFromJsonAsync<List<CloudAlertSummary>>(url, JsonOptions, ct) ?? new List<CloudAlertSummary>();
     }
 
+    public async Task<List<CloudAlertSummary>> GetUserCurrentAlertsAsync(Guid userId, CancellationToken ct)
+    {
+        var alerts = await GetUserAlertsAsync(userId, ct);
+        var cutoff = DateTime.UtcNow.Subtract(CurrentAlertFreshness);
+
+        return alerts
+            .Where(a => a.LastSyncedAtUtc >= cutoff)
+            .GroupBy(BuildOperationalAlertKey, StringComparer.Ordinal)
+            .Select(g => g
+                .OrderByDescending(a => a.LastSyncedAtUtc)
+                .ThenByDescending(a => a.OpenedAtUtc)
+                .First())
+            .OrderByDescending(a => a.OpenedAtUtc)
+            .ToList();
+    }
+
     public async Task<MobileDeviceTokenRecord> RegisterDeviceTokenAsync(Guid userId, RegisterDeviceTokenRequest request, CancellationToken ct)
     {
         var payload = new[]
@@ -219,6 +236,45 @@ public class SupabaseRestClient
 
         var rows = await resp.Content.ReadFromJsonAsync<List<CloudAlertSummary>>(JsonOptions, ct) ?? new List<CloudAlertSummary>();
         return rows.FirstOrDefault();
+    }
+
+    private static string BuildOperationalAlertKey(CloudAlertSummary alert)
+    {
+        var parts = new List<string>
+        {
+            alert.CentralInstanceId.ToString("N"),
+            alert.HostId?.ToString("N") ?? "",
+            alert.MetricKey
+        };
+
+        foreach (var propertyName in new[] { "service", "kind", "drive", "iface", "process", "pid", "snmp_ip", "oid", "if_index" })
+        {
+            if (TryGetLabelString(alert, propertyName, out var value) && !string.IsNullOrWhiteSpace(value))
+                parts.Add($"{propertyName}={value}");
+        }
+
+        return string.Join("|", parts);
+    }
+
+    private static bool TryGetLabelString(CloudAlertSummary alert, string propertyName, out string? value)
+    {
+        value = null;
+        if (alert.LabelsJson is null || alert.LabelsJson.Value.ValueKind != JsonValueKind.Object)
+            return false;
+
+        if (!alert.LabelsJson.Value.TryGetProperty(propertyName, out var property))
+            return false;
+
+        value = property.ValueKind switch
+        {
+            JsonValueKind.String => property.GetString(),
+            JsonValueKind.Number => property.GetRawText(),
+            JsonValueKind.True => "true",
+            JsonValueKind.False => "false",
+            _ => property.GetRawText()
+        };
+
+        return true;
     }
 
     public async Task<List<CentralUserAccessSummary>> GetCentralUsersAsync(Guid instanceId, CancellationToken ct)
@@ -484,6 +540,8 @@ public class CloudAlertSummary
     public double? Threshold { get; set; }
     [JsonPropertyName("labels_json")]
     public JsonElement? LabelsJson { get; set; }
+    [JsonPropertyName("last_synced_at_utc")]
+    public DateTime LastSyncedAtUtc { get; set; }
     [JsonPropertyName("opened_at_utc")]
     public DateTime OpenedAtUtc { get; set; }
     [JsonPropertyName("resolved_at_utc")]

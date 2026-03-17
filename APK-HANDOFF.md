@@ -172,6 +172,8 @@ Importante:
 - `GET /api/v1/mobile/alerts` devuelve solo alertas `Open` o `Acked`
 - no devuelve alertas `Resolved`
 - para estado actual del sistema, este endpoint es la referencia operativa
+- el `CloudApi` filtra abiertas estancadas/viejas para no saturar el APK con basura historica
+- el `CloudApi` deduplica por contexto para no enviar el mismo problema varias veces
 
 El backend ahora persiste contexto propio de cada alerta:
 
