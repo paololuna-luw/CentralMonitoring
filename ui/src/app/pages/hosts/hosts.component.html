@@ -1,0 +1,138 @@
+<div class="space-y-4">
+  <div class="app-panel p-4 space-y-3">
+    <div class="text-sm font-semibold">Crear Host (Agente Programa 2)</div>
+    <div class="grid gap-3 md:grid-cols-3">
+      <input [(ngModel)]="form.name" class="app-input" placeholder="Name (ej. srv-app-01)" />
+      <input [(ngModel)]="form.ipAddress" class="app-input" placeholder="IpAddress (ej. 10.3.23.80)" />
+      <select [(ngModel)]="form.type" class="app-input">
+        <option [ngValue]="1">Windows</option>
+        <option [ngValue]="2">Linux</option>
+        <option [ngValue]="3">Network</option>
+      </select>
+      <input [(ngModel)]="form.tags" class="app-input md:col-span-2" placeholder="Tags (opcional)" />
+      <label class="text-sm flex items-center gap-2">
+        <input type="checkbox" [(ngModel)]="form.isActive" />
+        Activo
+      </label>
+    </div>
+    <div class="flex items-center gap-2">
+      <button class="app-btn" (click)="createHost()" [disabled]="creating()">
+        {{ creating() ? 'Creando...' : 'Crear HostId' }}
+      </button>
+      <button class="app-btn-soft" (click)="refreshStatuses()">Refrescar estados</button>
+      <span class="text-xs app-muted">Confirmed = métricas recientes ({{ recentMinutes }} min).</span>
+    </div>
+    <div *ngIf="error()" class="text-xs text-red-500">{{ error() }}</div>
+  </div>
+
+  <div class="app-panel overflow-x-auto" *ngIf="!loading(); else hostSkeleton">
+    <table class="app-table">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>HostId</th>
+          <th>IP</th>
+          <th>Type</th>
+          <th>Estado</th>
+          <th>Última métrica</th>
+          <th>Acción</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let h of hosts()">
+          <td>
+            <ng-container *ngIf="editingHostId() === h.id; else readName">
+              <input [(ngModel)]="editForm.name" class="app-input w-52" />
+            </ng-container>
+            <ng-template #readName>{{ h.name }}</ng-template>
+          </td>
+          <td class="text-xs">{{ h.id }}</td>
+          <td>
+            <ng-container *ngIf="editingHostId() === h.id; else readIp">
+              <input [(ngModel)]="editForm.ipAddress" class="app-input w-44" />
+            </ng-container>
+            <ng-template #readIp>{{ h.ipAddress }}</ng-template>
+          </td>
+          <td>
+            <ng-container *ngIf="editingHostId() === h.id; else readType">
+              <select [(ngModel)]="editForm.type" class="app-input w-32">
+                <option [ngValue]="1">Windows</option>
+                <option [ngValue]="2">Linux</option>
+                <option [ngValue]="3">Network</option>
+              </select>
+            </ng-container>
+            <ng-template #readType>{{ h.type }}</ng-template>
+          </td>
+          <td>
+            <span class="px-2 py-1 rounded-full text-xs text-white" [style.background]="stateColor(h.id)">
+              {{ stateLabel(h.id) }}
+            </span>
+          </td>
+          <td class="text-xs app-muted">
+            {{ lastMetric(h.id) ? (lastMetric(h.id) | date:'short') : '-' }}
+          </td>
+          <td>
+            <div class="flex items-center gap-2 justify-end relative">
+              <button class="app-btn-soft" (click)="copyHostId(h.id)">Copiar HostId</button>
+              <ng-container *ngIf="editingHostId() === h.id; else actionsMenu">
+                <button class="app-btn-soft" (click)="saveEdit(h)" [disabled]="savingHostId() === h.id">
+                  {{ savingHostId() === h.id ? 'Guardando...' : 'Guardar' }}
+                </button>
+                <button class="app-btn-soft" (click)="cancelEdit()">Cancelar</button>
+              </ng-container>
+              <ng-template #actionsMenu>
+                <button class="app-btn-soft px-3" (click)="toggleActions(h.id)">⋮</button>
+                <div
+                  *ngIf="actionsHostId() === h.id"
+                  class="absolute right-0 top-10 app-panel p-1 min-w-[9rem] z-20"
+                >
+                  <button class="block w-full text-left px-3 py-2 text-sm hover:opacity-90" (click)="startEdit(h)">Editar</button>
+                  <button
+                    class="block w-full text-left px-3 py-2 text-sm text-red-500 hover:opacity-90"
+                    (click)="askDeleteHost(h)"
+                    [disabled]="deletingHostId() === h.id"
+                  >
+                    {{ deletingHostId() === h.id ? 'Eliminando...' : 'Eliminar' }}
+                  </button>
+                </div>
+              </ng-template>
+            </div>
+          </td>
+        </tr>
+        <tr *ngIf="hosts().length === 0">
+          <td colspan="7">
+            <div class="empty-card m-2">
+              <div class="empty-title">Sin hosts registrados</div>
+              <div class="empty-desc">Crea un host para obtener el HostId que usará el agente (Programa 2).</div>
+            </div>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <ng-template #hostSkeleton>
+    <div class="grid gap-2">
+      <div class="skeleton-card" *ngFor="let _ of [1,2,3,4]">
+        <div class="skeleton-line" style="width: 45%;"></div>
+        <div class="skeleton-line" style="width: 90%;"></div>
+      </div>
+    </div>
+  </ng-template>
+
+  <div *ngIf="confirmDeleteHost() as h" class="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4">
+    <div class="app-panel p-4 w-full max-w-md space-y-3">
+      <div class="text-base font-semibold">Confirmar eliminacion</div>
+      <div class="text-sm app-muted">
+        Vas a eliminar el host <span class="font-semibold">{{ h.name }}</span> ({{ h.ipAddress }}).
+        Esta accion eliminara sus metricas/alertas asociadas y reglas ligadas al HostId.
+      </div>
+      <div class="flex justify-end gap-2">
+        <button class="app-btn-soft" (click)="cancelDeleteHost()" [disabled]="deletingHostId() === h.id">Cancelar</button>
+        <button class="app-btn-soft" (click)="deleteHostConfirmed()" [disabled]="deletingHostId() === h.id">
+          {{ deletingHostId() === h.id ? 'Eliminando...' : 'Confirmar eliminar' }}
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

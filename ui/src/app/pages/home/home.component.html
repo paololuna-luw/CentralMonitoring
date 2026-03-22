@@ -1,0 +1,90 @@
+<div class="space-y-5">
+  <section class="hero-panel p-6 md:p-8">
+    <div class="max-w-3xl">
+      <div class="hero-kicker">CENTRAL MONITORING</div>
+      <h1 class="hero-title">Operational Command Dashboard</h1>
+      <p class="hero-sub">
+        Vista consolidada de salud SNMP, reglas activas y alertas abiertas.
+        Usa este panel como punto de control antes de entrar al detalle por modulo.
+      </p>
+      <div class="flex flex-wrap gap-2 mt-4">
+        <button class="app-btn" (click)="refresh()">Actualizar resumen</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+    <article class="metric-card">
+      <div class="metric-label">Targets habilitados</div>
+      <div class="metric-value">{{ enabledTargets() }}</div>
+      <div class="metric-note">SNMP inventory operativo</div>
+    </article>
+
+    <article class="metric-card">
+      <div class="metric-label">Targets en falla</div>
+      <div class="metric-value">{{ failingTargets() }}</div>
+      <div class="metric-note">ConsecutiveFailures > 0</div>
+    </article>
+
+    <article class="metric-card">
+      <div class="metric-label">Alertas críticas</div>
+      <div class="metric-value">{{ criticalAlerts() }}</div>
+      <div class="metric-note">Eventos no resueltos</div>
+    </article>
+
+    <article class="metric-card">
+      <div class="metric-label">Reglas activas</div>
+      <div class="metric-value">{{ activeRules() }}</div>
+      <div class="metric-note">Evaluación habilitada</div>
+    </article>
+  </section>
+
+  <section class="grid gap-4 xl:grid-cols-2">
+    <div class="app-panel p-4">
+      <div class="section-title">Targets recientes</div>
+      <div class="mt-3 space-y-2" *ngIf="targets().length > 0; else noTargets">
+        <div class="row-item" *ngFor="let t of targets().slice(0, 5)">
+          <div>
+            <div class="font-semibold text-sm">{{ t.ipAddress }}</div>
+            <div class="text-xs app-muted">{{ t.profile || 'Sin profile' }}</div>
+          </div>
+          <div class="text-right text-xs app-muted">
+            <div>{{ t.lastSuccessUtc ? (t.lastSuccessUtc | date:'short') : '-' }}</div>
+            <div>{{ t.enabled ? 'Enabled' : 'Disabled' }}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="app-panel p-4">
+      <div class="section-title">Alertas abiertas</div>
+      <div class="mt-3 space-y-2" *ngIf="alerts().length > 0; else noAlerts">
+        <div class="row-item" *ngFor="let a of alerts().slice(0, 5)">
+          <div>
+            <div class="font-semibold text-sm">{{ a.metricKey }}</div>
+            <div class="text-xs app-muted">{{ a.hostId }}</div>
+          </div>
+          <div class="text-right text-xs">
+            <span class="pill" [class.pill-danger]="(a.severity || '').toLowerCase().includes('critical')">
+              {{ a.severity }}
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <ng-template #noTargets>
+    <div class="empty-card mt-3">
+      <div class="empty-title">Sin targets para mostrar</div>
+      <div class="empty-desc">Agrega o habilita targets SNMP para ver actividad en el resumen.</div>
+    </div>
+  </ng-template>
+
+  <ng-template #noAlerts>
+    <div class="empty-card mt-3">
+      <div class="empty-title">Sin alertas abiertas</div>
+      <div class="empty-desc">Excelente estado operativo en este momento.</div>
+    </div>
+  </ng-template>
+</div>

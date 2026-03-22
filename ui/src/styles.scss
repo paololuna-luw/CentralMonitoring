@@ -1,0 +1,390 @@
+/* You can add global styles to this file, and also import other style files */
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Manrope:wght@400;500;600;700&display=swap');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --font-main: "Manrope", "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+    --font-display: "Cormorant Garamond", Georgia, serif;
+    --bg: #f3f0eb;
+    --bg-elevated: #ffffff;
+    --bg-soft: #ece8e1;
+    --text: #181715;
+    --muted: #66615a;
+    --border: #d6cfc4;
+    --accent: #c5794d;
+    --accent-strong: #aa5d36;
+    --ok: #10b981;
+    --warn: #f59e0b;
+    --danger: #ef4444;
+    --glow-a: rgba(197, 121, 77, 0.16);
+    --glow-b: rgba(153, 87, 50, 0.1);
+  }
+
+  .dark {
+    --bg: #1c1d21;
+    --bg-elevated: #24262b;
+    --bg-soft: #1f2126;
+    --text: #ece7de;
+    --muted: #a49a8c;
+    --border: #373a42;
+    --accent: #d2895f;
+    --accent-strong: #c07046;
+    --ok: #34d399;
+    --warn: #fbbf24;
+    --danger: #f87171;
+    --glow-a: rgba(210, 137, 95, 0.17);
+    --glow-b: rgba(164, 111, 79, 0.11);
+  }
+
+  html,
+  body {
+    margin: 0;
+    padding: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-main);
+    transition: background-color 200ms ease, color 200ms ease;
+  }
+
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in srgb, var(--accent) 40%, var(--bg-soft))
+      color-mix(in srgb, var(--bg) 88%, transparent);
+  }
+
+  *::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  *::-webkit-scrollbar-track {
+    background: color-mix(in srgb, var(--bg-soft) 70%, transparent);
+    border-radius: 999px;
+  }
+
+  *::-webkit-scrollbar-thumb {
+    border-radius: 999px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+    background: linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--accent) 62%, var(--border)),
+      color-mix(in srgb, var(--accent-strong) 56%, var(--border))
+    );
+    min-height: 38px;
+  }
+
+  *::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--accent) 76%, var(--border)),
+      color-mix(in srgb, var(--accent-strong) 70%, var(--border))
+    );
+  }
+
+  *::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+}
+
+@layer components {
+  .app-shell {
+    height: 100vh;
+    display: flex;
+    overflow: hidden;
+    background: radial-gradient(circle at 88% -10%, var(--glow-a), transparent 38%),
+      radial-gradient(circle at -12% 88%, var(--glow-b), transparent 42%),
+      var(--bg);
+  }
+
+  .app-sidebar {
+    width: 15rem;
+    height: 100vh;
+    position: sticky;
+    top: 0;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    background: color-mix(in srgb, var(--bg-soft) 84%, transparent);
+    border-right: 1px solid var(--border);
+    backdrop-filter: blur(9px);
+    overflow: hidden;
+  }
+
+  .app-main {
+    flex: 1;
+    min-width: 0;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    scrollbar-gutter: stable;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .app-content {
+    flex: 1;
+    min-height: 0;
+  }
+
+  .app-header {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    padding: 0.95rem 1.5rem;
+    border-bottom: 1px solid var(--border);
+    background: color-mix(in srgb, var(--bg) 86%, transparent);
+    backdrop-filter: blur(8px);
+  }
+
+  .app-panel {
+    background: color-mix(in srgb, var(--bg-elevated) 94%, transparent);
+    border: 1px solid var(--border);
+    border-radius: 0.85rem;
+    box-shadow: 0 14px 34px rgba(0, 0, 0, 0.12);
+  }
+
+  .app-input {
+    background: var(--bg-elevated);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 0.5rem;
+    padding: 0.55rem 0.75rem;
+  }
+
+  .app-input::placeholder {
+    color: var(--muted);
+  }
+
+  .app-btn {
+    border: 1px solid transparent;
+    border-radius: 0.5rem;
+    padding: 0.55rem 0.9rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: #fff;
+    background: linear-gradient(135deg, var(--accent), var(--accent-strong));
+    box-shadow: 0 10px 18px color-mix(in srgb, var(--accent) 35%, transparent);
+  }
+
+  .app-btn-soft {
+    border: 1px solid var(--border);
+    border-radius: 0.5rem;
+    padding: 0.5rem 0.8rem;
+    font-size: 0.8rem;
+    background: color-mix(in srgb, var(--bg-elevated) 95%, transparent);
+    color: var(--text);
+  }
+
+  .app-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+  }
+
+  .app-table th {
+    text-align: left;
+    color: var(--muted);
+    font-weight: 600;
+    padding: 0.75rem;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .app-table td {
+    padding: 0.75rem;
+    border-top: 1px solid var(--border);
+  }
+
+  .app-muted {
+    color: var(--muted);
+  }
+
+  .skeleton-line {
+    height: 0.8rem;
+    border-radius: 0.35rem;
+    background: linear-gradient(90deg, color-mix(in srgb, var(--border) 65%, transparent), color-mix(in srgb, var(--bg-elevated) 80%, transparent), color-mix(in srgb, var(--border) 65%, transparent));
+    background-size: 200% 100%;
+    animation: cm-shimmer 1.4s linear infinite;
+  }
+
+  .skeleton-card {
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: 0.75rem;
+    padding: 1rem;
+    display: grid;
+    gap: 0.55rem;
+  }
+
+  .empty-card {
+    background: color-mix(in srgb, var(--bg-elevated) 92%, transparent);
+    border: 1px dashed var(--border);
+    border-radius: 0.85rem;
+    padding: 1.1rem;
+    text-align: center;
+  }
+
+  .empty-title {
+    font-size: 0.92rem;
+    font-weight: 700;
+    color: var(--text);
+  }
+
+  .empty-desc {
+    font-size: 0.8rem;
+    color: var(--muted);
+    margin-top: 0.3rem;
+  }
+
+  .toast-wrap {
+    position: fixed;
+    right: 1rem;
+    bottom: 1rem;
+    z-index: 1000;
+    display: grid;
+    gap: 0.55rem;
+    width: min(28rem, calc(100vw - 2rem));
+  }
+
+  .toast-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.8rem;
+    border-radius: 0.7rem;
+    border: 1px solid var(--border);
+    background: var(--bg-elevated);
+    box-shadow: 0 8px 28px rgba(2, 6, 23, 0.22);
+    padding: 0.65rem 0.75rem;
+  }
+
+  .toast-card.ok {
+    border-color: color-mix(in srgb, var(--ok) 55%, var(--border));
+  }
+
+  .toast-card.err {
+    border-color: color-mix(in srgb, var(--danger) 55%, var(--border));
+  }
+
+  .toast-card.info {
+    border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
+  }
+
+  .toast-text {
+    font-size: 0.82rem;
+    color: var(--text);
+  }
+
+  .toast-close {
+    border: 1px solid var(--border);
+    border-radius: 0.45rem;
+    background: transparent;
+    color: var(--muted);
+    font-size: 0.75rem;
+    padding: 0.15rem 0.4rem;
+  }
+
+  .hero-panel {
+    border: 1px solid var(--border);
+    border-radius: 1rem;
+    background:
+      linear-gradient(120deg, rgba(0, 0, 0, 0.24), rgba(0, 0, 0, 0.18)),
+      radial-gradient(circle at 78% 0%, color-mix(in srgb, var(--accent) 22%, transparent), transparent 42%),
+      linear-gradient(125deg, color-mix(in srgb, var(--bg-elevated) 91%, transparent), color-mix(in srgb, var(--bg-soft) 84%, transparent));
+    box-shadow: 0 22px 45px rgba(0, 0, 0, 0.26);
+  }
+
+  .hero-kicker {
+    font-size: 0.72rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  .hero-title {
+    font-family: var(--font-display);
+    font-size: clamp(2rem, 4vw, 3.5rem);
+    line-height: 1;
+    margin: 0.55rem 0;
+    letter-spacing: 0.01em;
+  }
+
+  .hero-sub {
+    font-size: 0.92rem;
+    color: var(--muted);
+    max-width: 52ch;
+  }
+
+  .metric-card {
+    background: color-mix(in srgb, var(--bg-elevated) 92%, transparent);
+    border: 1px solid var(--border);
+    border-radius: 0.85rem;
+    padding: 1rem;
+  }
+
+  .metric-label {
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    color: var(--muted);
+  }
+
+  .metric-value {
+    font-family: var(--font-display);
+    font-size: 2.1rem;
+    line-height: 1;
+    margin-top: 0.25rem;
+  }
+
+  .metric-note {
+    font-size: 0.75rem;
+    color: var(--muted);
+    margin-top: 0.35rem;
+  }
+
+  .section-title {
+    font-family: var(--font-display);
+    font-size: 1.35rem;
+    line-height: 1;
+    letter-spacing: 0.02em;
+  }
+
+  .row-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.9rem;
+    border: 1px solid color-mix(in srgb, var(--border) 75%, transparent);
+    border-radius: 0.7rem;
+    padding: 0.7rem 0.75rem;
+    background: color-mix(in srgb, var(--bg-elevated) 96%, transparent);
+  }
+
+  .pill {
+    display: inline-block;
+    border: 1px solid color-mix(in srgb, var(--accent) 50%, var(--border));
+    border-radius: 999px;
+    padding: 0.22rem 0.58rem;
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--accent);
+  }
+
+  .pill-danger {
+    border-color: color-mix(in srgb, var(--danger) 60%, var(--border));
+    color: var(--danger);
+  }
+}
+
+@keyframes cm-shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}

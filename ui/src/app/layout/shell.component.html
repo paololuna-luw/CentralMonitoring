@@ -1,0 +1,43 @@
+<div class="app-shell">
+  <aside class="app-sidebar">
+    <div class="brand-wrap px-5 py-5 border-b" style="border-color: var(--border);">
+      <div class="brand-mark"></div>
+      <div>
+        <div class="brand-title">Central Monitoring</div>
+        <div class="text-xs app-muted tracking-wide">Program 1 Console</div>
+      </div>
+    </div>
+
+    <nav class="flex-1 px-3 py-4 space-y-1">
+      <a
+        *ngFor="let item of nav"
+        [routerLink]="item.path"
+        routerLinkActive="active"
+        class="nav-link block px-3 py-2 rounded-md text-sm"
+      >
+        {{ item.label }}
+      </a>
+    </nav>
+
+    <div class="px-4 py-3 border-t flex items-center justify-between text-xs" style="border-color: var(--border);">
+      <span class="app-muted">Theme</span>
+      <button class="app-btn-soft" (click)="toggleTheme()">
+        {{ darkMode() ? 'Dark' : 'Light' }}
+      </button>
+    </div>
+  </aside>
+
+  <main class="app-main">
+    <header class="app-header flex items-center justify-between">
+      <div>
+        <div class="text-xs app-muted uppercase tracking-[0.14em]">Monitoring Surface</div>
+        <div class="text-sm header-title">Operational Dashboard</div>
+      </div>
+      <div class="text-xs app-muted">API Key set · Dev</div>
+    </header>
+
+    <section class="app-content p-6">
+      <router-outlet></router-outlet>
+    </section>
+  </main>
+</div>

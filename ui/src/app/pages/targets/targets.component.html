@@ -1,0 +1,179 @@
+<div class="space-y-4">
+  <div class="app-panel p-4 space-y-3">
+    <div class="text-sm font-semibold">Crear target SNMP</div>
+    <div class="grid gap-3 md:grid-cols-3">
+      <select [(ngModel)]="createModel.hostId" class="app-input">
+        <option value="">Host (opcional)</option>
+        <option *ngFor="let h of hosts()" [value]="h.id">{{ h.name }} | {{ h.ipAddress }}</option>
+      </select>
+      <input [(ngModel)]="createModel.name" class="app-input" placeholder="Nombre (ej. router-core)" />
+      <input [(ngModel)]="createModel.ipAddress" class="app-input" placeholder="IpAddress (manual, opcional si eliges Host)" />
+      <select [(ngModel)]="createModel.version" class="app-input">
+        <option value="v2c">v2c</option>
+        <option value="v1">v1</option>
+      </select>
+      <input [(ngModel)]="createModel.community" class="app-input" placeholder="Community" />
+      <input [(ngModel)]="createModel.tags" class="app-input" placeholder="Tags (opcional)" />
+      <label class="text-sm flex items-center gap-2">
+        <input type="checkbox" [(ngModel)]="createModel.enabled" />
+        Enabled
+      </label>
+    </div>
+    <div>
+      <button class="app-btn" (click)="createTarget()" [disabled]="creating()">
+        {{ creating() ? 'Creando...' : 'Crear target' }}
+      </button>
+    </div>
+  </div>
+
+  <div class="flex items-center gap-3 flex-wrap">
+    <input
+      [(ngModel)]="ipFilter"
+      (keyup.enter)="load()"
+      class="app-input w-64"
+      placeholder="Filtrar por IP"
+    />
+    <input
+      [(ngModel)]="hostIdFilter"
+      (keyup.enter)="load()"
+      class="app-input w-[28rem]"
+      placeholder="Filtrar por HostId del agente"
+    />
+    <button (click)="load()" class="app-btn">Buscar</button>
+    <div *ngIf="loading()" class="text-xs app-muted">Cargando...</div>
+    <div *ngIf="error()" class="text-xs text-red-500">{{ error() }}</div>
+  </div>
+
+  <div class="grid gap-4 lg:grid-cols-2">
+    <div class="app-panel overflow-x-auto" *ngIf="!loading(); else targetsSkeleton">
+      <table class="app-table">
+        <thead>
+          <tr>
+            <th>Nombre</th>
+            <th>IP</th>
+            <th>Version</th>
+            <th>HostId</th>
+            <th>HostName</th>
+            <th>Tags</th>
+            <th>Estado</th>
+            <th>Failures</th>
+            <th>Last Success</th>
+            <th>Last Failure</th>
+            <th>Accion</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let t of targets()">
+            <td>{{ t.name || t.profile || '-' }}</td>
+            <td>{{ t.ipAddress }}</td>
+            <td>{{ t.version }}</td>
+            <td class="text-xs app-muted">{{ hostIdForTarget(t) }}</td>
+            <td>{{ hostNameForTarget(t) }}</td>
+            <td>{{ t.tags || '-' }}</td>
+            <td><span class="px-2 py-1 rounded-full text-xs text-white" [style.background]="statusColor(t)">{{ statusLabel(t) }}</span></td>
+            <td>{{ t.consecutiveFailures || 0 }}</td>
+            <td class="text-xs app-muted">{{ t.lastSuccessUtc ? (t.lastSuccessUtc | date:'short') : '-' }}</td>
+            <td class="text-xs app-muted">{{ t.lastFailureUtc ? (t.lastFailureUtc | date:'short') : '-' }}</td>
+            <td>
+              <button class="app-btn-soft" (click)="selectTarget(t.id)">Detalle</button>
+            </td>
+          </tr>
+          <tr *ngIf="!loading() && targets().length === 0">
+            <td colspan="12" class="text-center app-muted">Sin targets</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <ng-template #targetsSkeleton>
+      <div class="grid gap-2">
+        <div class="skeleton-card" *ngFor="let _ of [1,2,3,4]">
+          <div class="skeleton-line" style="width: 38%;"></div>
+          <div class="skeleton-line" style="width: 72%;"></div>
+        </div>
+      </div>
+    </ng-template>
+
+    <div class="app-panel p-4 space-y-3" *ngIf="selected() as s; else noSelection">
+      <div class="flex items-center justify-between">
+        <div>
+          <div class="text-sm font-semibold">Target {{ s.ipAddress }}</div>
+          <div class="text-xs app-muted">Version {{ s.version }}</div>
+          <div class="text-xs app-muted">Estado: <span [style.color]="statusColor(s)">{{ statusLabel(s) }}</span></div>
+          <div class="text-xs app-muted">HostId: {{ hostIdForTarget(s) }}</div>
+          <div class="text-xs app-muted">HostName: {{ hostNameForTarget(s) }}</div>
+          <div class="text-xs app-muted">Last success: {{ s.lastSuccessUtc ? (s.lastSuccessUtc | date:'short') : '-' }}</div>
+          <div class="text-xs app-muted">Last failure: {{ s.lastFailureUtc ? (s.lastFailureUtc | date:'short') : '-' }}</div>
+        </div>
+        <button class="app-btn-soft" (click)="askDeleteSelected()">Delete</button>
+      </div>
+
+      <div class="grid gap-3 md:grid-cols-2">
+        <label class="text-sm">
+          Community
+          <input [(ngModel)]="edit.community" class="app-input w-full mt-1" />
+        </label>
+        <label class="text-sm">
+          Nombre
+          <input [(ngModel)]="edit.name" class="app-input w-full mt-1" />
+        </label>
+        <label class="text-sm md:col-span-2">
+          Tags
+          <input [(ngModel)]="edit.tags" class="app-input w-full mt-1" />
+        </label>
+        <label class="text-sm flex items-center gap-2">
+          <input type="checkbox" [(ngModel)]="edit.enabled" />
+          Enabled
+        </label>
+      </div>
+
+      <div class="space-y-2">
+        <div class="flex items-center justify-between">
+          <div class="text-sm font-semibold">Metricas/OIDs</div>
+          <div class="flex gap-2">
+            <button class="app-btn-soft" (click)="setAllMetrics(true)">Enable All (UI)</button>
+            <button class="app-btn-soft" (click)="setAllMetrics(false)">Disable All (UI)</button>
+          </div>
+        </div>
+        <div class="max-h-56 overflow-auto border rounded-md p-2" style="border-color: var(--border);">
+          <label class="flex items-center justify-between py-1 text-sm" *ngFor="let m of selectedMetrics()">
+            <span>{{ m.key }} <span class="app-muted">({{ m.oid }})</span></span>
+            <input
+              type="checkbox"
+              [ngModel]="m.enabled"
+              (ngModelChange)="toggleMetric(m.key, $event)"
+            />
+          </label>
+          <div *ngIf="selectedMetrics().length === 0" class="text-xs app-muted">Sin metricas configuradas.</div>
+        </div>
+      </div>
+
+      <div class="flex flex-wrap gap-2">
+        <button class="app-btn" (click)="saveSelected()" [disabled]="saving()">Guardar</button>
+        <button class="app-btn-soft" (click)="enableAllServer()">Enable All (API)</button>
+        <button class="app-btn-soft" (click)="disableAllServer()">Disable All (API)</button>
+      </div>
+    </div>
+
+    <ng-template #noSelection>
+      <div class="empty-card">
+        <div class="empty-title">Sin target seleccionado</div>
+        <div class="empty-desc">Elige un equipo de la tabla para ver su detalle, estado y configuracion de OIDs.</div>
+      </div>
+    </ng-template>
+  </div>
+
+  <div *ngIf="confirmDeleteOpen() && selected() as s" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+    <div class="app-panel p-4 w-full max-w-md space-y-3">
+      <div class="text-base font-semibold">Confirmar eliminacion</div>
+      <div class="text-sm app-muted">
+        Vas a eliminar el target <span class="font-semibold">{{ s.ipAddress }}</span>. Esta accion tambien elimina sus reglas SNMP asociadas.
+      </div>
+      <div class="flex justify-end gap-2">
+        <button class="app-btn-soft" (click)="cancelDelete()" [disabled]="deleting()">Cancelar</button>
+        <button class="app-btn-soft" (click)="confirmDelete()" [disabled]="deleting()">
+          {{ deleting() ? 'Eliminando...' : 'Confirmar delete' }}
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,50 @@
+:host {
+  display: block;
+}
+
+.brand-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+}
+
+.brand-mark {
+  width: 0.58rem;
+  height: 0.58rem;
+  border: 1px solid color-mix(in srgb, var(--accent) 70%, #fff);
+  background: color-mix(in srgb, var(--accent) 28%, transparent);
+}
+
+.brand-title {
+  font-family: var(--font-main);
+  letter-spacing: 0.04em;
+  font-size: 1.32rem;
+  font-weight: 600;
+  line-height: 1.05;
+}
+
+.nav-link {
+  color: color-mix(in srgb, var(--muted) 90%, #fff);
+  border: 1px solid transparent;
+  transition: all 180ms ease;
+}
+
+.nav-link:hover {
+  color: var(--text);
+  background: color-mix(in srgb, var(--bg-elevated) 85%, transparent);
+  transform: translateX(2px);
+}
+
+.nav-link.active {
+  color: var(--text);
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+  background: color-mix(in srgb, var(--accent) 14%, var(--bg-elevated));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 18%, transparent);
+}
+
+.header-title {
+  font-family: var(--font-main);
+  font-size: 1.16rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}

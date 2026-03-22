@@ -1,0 +1,107 @@
+<div class="space-y-4">
+  <div class="app-panel p-4 space-y-2">
+    <div class="text-sm font-semibold">Nueva regla rapida</div>
+    <div class="grid grid-cols-2 md:grid-cols-3 gap-3 text-sm">
+      <input [(ngModel)]="newRule.metricKey" placeholder="metricKey" class="app-input" />
+      <select [(ngModel)]="newRule.operator" class="app-input">
+        <option>></option><option>>=</option><option><</option><option><=</option><option>==</option><option>!=</option>
+      </select>
+      <input type="number" [(ngModel)]="newRule.threshold" placeholder="threshold" class="app-input" />
+      <input type="number" [(ngModel)]="newRule.windowMinutes" placeholder="windowMinutes" class="app-input" />
+      <input [(ngModel)]="newRule.severity" placeholder="severity" class="app-input" />
+      <input [(ngModel)]="newRule.snmpIp" placeholder="snmpIp (opcional)" class="app-input md:col-span-2" />
+    </div>
+    <div *ngIf="createError()" class="text-xs text-red-500">{{ createError() }}</div>
+    <button (click)="create()" class="app-btn">Crear</button>
+  </div>
+
+  <div class="app-panel overflow-x-auto" *ngIf="!loading(); else rulesSkeleton">
+    <table class="app-table">
+      <thead>
+        <tr>
+          <th>Metric</th>
+          <th>Op</th>
+          <th>Thr</th>
+          <th>Window</th>
+          <th>Severity</th>
+          <th>SnmpIp</th>
+          <th>Enabled</th>
+          <th>Accion</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let r of rules()">
+          <td>{{ r.metricKey }}</td>
+          <td>
+            <select class="app-input" [(ngModel)]="drafts[r.id].operator">
+              <option>></option>
+              <option>>=</option>
+              <option><</option>
+              <option><=</option>
+              <option>==</option>
+              <option>!=</option>
+            </select>
+          </td>
+          <td>
+            <input
+              type="number"
+              class="app-input w-24"
+              [(ngModel)]="drafts[r.id].threshold"
+            />
+          </td>
+          <td>
+            <input
+              type="number"
+              class="app-input w-20"
+              [(ngModel)]="drafts[r.id].windowMinutes"
+            />
+          </td>
+          <td>
+            <input class="app-input w-28" [(ngModel)]="drafts[r.id].severity" />
+          </td>
+          <td>
+            <input class="app-input w-40" [(ngModel)]="drafts[r.id].snmpIp" />
+          </td>
+          <td>
+            <input type="checkbox" [(ngModel)]="drafts[r.id].enabled" />
+          </td>
+          <td>
+            <div class="flex gap-2 items-center">
+              <button
+                class="app-btn-soft"
+                (click)="saveRule(r)"
+                [disabled]="saving() || !!getDraftValidation(r.id) || !isDraftDirty(r.id)"
+              >
+                Guardar
+              </button>
+              <button
+                class="app-btn-soft"
+                (click)="cancelRuleChanges(r.id)"
+                [disabled]="!isDraftDirty(r.id)"
+              >
+                Cancelar
+              </button>
+            </div>
+            <div class="text-[11px] mt-1" *ngIf="isDraftDirty(r.id)" style="color: var(--warn);">
+              Cambios sin guardar
+            </div>
+            <div class="text-[11px] mt-1 text-red-500" *ngIf="getDraftValidation(r.id) as err">
+              {{ err }}
+            </div>
+          </td>
+        </tr>
+        <tr *ngIf="!rules().length">
+          <td colspan="8" class="text-center app-muted">Sin reglas</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <ng-template #rulesSkeleton>
+    <div class="grid gap-2">
+      <div class="skeleton-card" *ngFor="let _ of [1,2,3]">
+        <div class="skeleton-line" style="width: 42%;"></div>
+        <div class="skeleton-line" style="width: 86%;"></div>
+      </div>
+    </div>
+  </ng-template>
+</div>

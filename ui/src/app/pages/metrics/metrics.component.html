@@ -1,0 +1,119 @@
+<div class="space-y-4">
+  <div class="flex flex-wrap items-center gap-3">
+    <label class="text-sm app-muted">
+      Fuente
+      <select class="app-input ml-1 w-36" [ngModel]="sourceType" (ngModelChange)="onSourceTypeChange($event)">
+        <option value="snmp">SNMP IP</option>
+        <option value="agent">Agente HostId</option>
+      </select>
+    </label>
+
+    <label class="text-sm app-muted">
+      Target SNMP
+      <select
+        class="app-input ml-1 w-56"
+        [ngModel]="snmpIp"
+        (ngModelChange)="onTargetChange($event)"
+        [disabled]="sourceType !== 'snmp'"
+      >
+        <option value="">Selecciona target</option>
+        <option *ngFor="let t of targets()" [value]="t.ipAddress">
+          {{ t.ipAddress }}{{ t.profile ? ' - ' + t.profile : '' }}
+        </option>
+      </select>
+    </label>
+
+    <label class="text-sm app-muted">
+      HostId agente
+      <select
+        class="app-input ml-1 w-[26rem]"
+        [ngModel]="hostId"
+        (ngModelChange)="onHostChange($event)"
+        [disabled]="sourceType !== 'agent'"
+      >
+        <option value="">Selecciona host</option>
+        <option *ngFor="let h of hosts()" [value]="h.id">
+          {{ h.id }} - {{ h.name }} ({{ h.ipAddress }})
+        </option>
+      </select>
+    </label>
+
+    <label class="text-sm app-muted">
+      freshMinutes
+      <input type="number" [(ngModel)]="freshMinutes" class="app-input w-16 ml-1" />
+    </label>
+
+    <label class="text-sm app-muted">
+      autoRefresh
+      <select
+        class="app-input ml-1 w-24"
+        [(ngModel)]="autoRefreshSeconds"
+        (change)="applyAutoRefresh()"
+      >
+        <option [ngValue]="0">Off</option>
+        <option [ngValue]="15">15s</option>
+        <option [ngValue]="30">30s</option>
+        <option [ngValue]="60">60s</option>
+      </select>
+    </label>
+
+    <button (click)="load()" class="app-btn">Consultar</button>
+    <button (click)="stopAutoRefresh(); autoRefreshSeconds = 0" class="app-btn-soft">Pausar</button>
+    <div *ngIf="loading()" class="text-xs app-muted">Cargando...</div>
+    <div *ngIf="error()" class="text-xs text-red-500">{{ error() }}</div>
+  </div>
+
+  <div class="text-xs app-muted" *ngIf="lastLoadedAt() as loaded">
+    Ultima carga: {{ loaded | date:'mediumTime' }}
+  </div>
+
+  <div class="app-panel overflow-x-auto" *ngIf="!loading(); else metricsSkeleton">
+    <table class="app-table">
+      <thead>
+        <tr>
+          <th>Metric</th>
+          <th>Value</th>
+          <th>Timestamp</th>
+          <th>Estado</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let m of data()">
+          <td class="font-medium">{{ m.metricKey }}</td>
+          <td>{{ m.value }}</td>
+          <td class="app-muted">{{ m.timestampUtc | date:'medium' }}</td>
+          <td>
+            <span
+              *ngIf="isFresh(m.timestampUtc); else staleBadge"
+              class="px-2 py-1 rounded-full text-xs text-white"
+              style="background: var(--ok);"
+            >
+              Reciente
+            </span>
+            <ng-template #staleBadge>
+              <span class="px-2 py-1 rounded-full text-xs text-white" style="background: var(--danger);">
+                Sin datos recientes
+              </span>
+            </ng-template>
+          </td>
+        </tr>
+        <tr *ngIf="!loading() && data().length === 0">
+          <td colspan="4">
+            <div class="empty-card m-2">
+              <div class="empty-title">Sin metricas en la ventana actual</div>
+              <div class="empty-desc">Aumenta freshMinutes o espera el siguiente ciclo de polling.</div>
+            </div>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <ng-template #metricsSkeleton>
+    <div class="grid gap-2">
+      <div class="skeleton-card" *ngFor="let _ of [1,2,3,4]">
+        <div class="skeleton-line" style="width: 45%;"></div>
+        <div class="skeleton-line" style="width: 88%;"></div>
+      </div>
+    </div>
+  </ng-template>
+</div>
