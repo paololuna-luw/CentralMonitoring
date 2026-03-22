@@ -1,0 +1,82 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: cm-central-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-central_monitoring}
+      POSTGRES_USER: ${POSTGRES_USER:-central_app}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+    volumes:
+      - central_postgres_data:/var/lib/postgresql/data
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+
+  api:
+    build:
+      context: .
+      dockerfile: docker/central/api.Dockerfile
+    container_name: cm-central-api
+    restart: unless-stopped
+    depends_on:
+      - postgres
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_URLS: http://0.0.0.0:8080
+      ConnectionStrings__Default: Host=postgres;Port=5432;Database=${POSTGRES_DB:-central_monitoring};Username=${POSTGRES_USER:-central_app};Password=${POSTGRES_PASSWORD}
+      ApiKey: ${CENTRAL_API_KEY:?set CENTRAL_API_KEY}
+      ConsoleLogging__Enabled: "true"
+    ports:
+      - "${CENTRAL_API_PORT:-5188}:8080"
+
+  worker:
+    build:
+      context: .
+      dockerfile: docker/central/worker.Dockerfile
+    container_name: cm-central-worker
+    restart: unless-stopped
+    depends_on:
+      - postgres
+      - api
+    environment:
+      DOTNET_ENVIRONMENT: Production
+      ConnectionStrings__Default: Host=postgres;Port=5432;Database=${POSTGRES_DB:-central_monitoring};Username=${POSTGRES_USER:-central_app};Password=${POSTGRES_PASSWORD}
+      ConsoleLogging__Enabled: "true"
+      Snmp__PollIntervalSeconds: ${SNMP_POLL_INTERVAL_SECONDS:-15}
+      Snmp__TimeoutMs: ${SNMP_TIMEOUT_MS:-5000}
+      Snmp__Retries: ${SNMP_RETRIES:-2}
+      Snmp__GraceEnabled: ${SNMP_GRACE_ENABLED:-false}
+      Snmp__MaxConsecutiveFailures: ${SNMP_MAX_CONSECUTIVE_FAILURES:-120}
+      Retention__Enabled: ${RETENTION_ENABLED:-false}
+      Retention__MetricsDays: ${RETENTION_METRICS_DAYS:-30}
+      Retention__AlertsDays: ${RETENTION_ALERTS_DAYS:-90}
+      Retention__RunIntervalMinutes: ${RETENTION_RUN_INTERVAL_MINUTES:-60}
+      Retention__BatchSize: ${RETENTION_BATCH_SIZE:-10000}
+      Alerting__WebhookUrl: ${ALERTING_WEBHOOK_URL:-}
+      Alerting__MaxDispatchAttempts: ${ALERTING_MAX_DISPATCH_ATTEMPTS:-3}
+      Cloud__Enabled: ${CLOUD_ENABLED:-true}
+      Cloud__BaseUrl: ${CLOUD_BASE_URL:-}
+      Cloud__InstanceId: ${CLOUD_INSTANCE_ID:-}
+      Cloud__InstanceName: ${CLOUD_INSTANCE_NAME:-}
+      Cloud__OrganizationName: ${CLOUD_ORGANIZATION_NAME:-}
+      Cloud__OrganizationSlug: ${CLOUD_ORGANIZATION_SLUG:-}
+      Cloud__Description: ${CLOUD_DESCRIPTION:-}
+      Cloud__SyncApiKey: ${CLOUD_SYNC_API_KEY:-}
+      Cloud__SyncIntervalSeconds: ${CLOUD_SYNC_INTERVAL_SECONDS:-60}
+
+  ui:
+    build:
+      context: .
+      dockerfile: docker/central/ui.Dockerfile
+      args:
+        UI_API_BASE: ${UI_API_BASE:-}
+        UI_API_KEY: ${CENTRAL_API_KEY:?set CENTRAL_API_KEY}
+    container_name: cm-central-ui
+    restart: unless-stopped
+    depends_on:
+      - api
+    ports:
+      - "${CENTRAL_UI_PORT:-8080}:80"
+
+volumes:
+  central_postgres_data:
