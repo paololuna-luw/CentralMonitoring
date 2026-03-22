@@ -37,6 +37,13 @@ builder.Services.AddDbContext<MonitoringDbContext>(options =>
 
 var app = builder.Build();
 
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<MonitoringDbContext>();
+    Log.Information("Applying database migrations on startup for CentralMonitoring.Api.");
+    db.Database.Migrate();
+}
+
 app.UseSwagger();
 app.UseSwaggerUI();
 

@@ -86,11 +86,7 @@ Rutas finales sugeridas:
 
 La API y el Worker comparten la misma base PostgreSQL.
 
-Aplica migraciones apuntando a la conexion real:
-
-```powershell
-dotnet ef database update --project CentralMonitoring.Infrastructure --startup-project CentralMonitoring.Api
-```
+La API ahora aplica migraciones automaticamente al arrancar en `Production`, por lo que en una instalacion normal ya no necesitas ejecutar `dotnet ef database update` manualmente.
 
 ## Cloud
 
@@ -115,7 +111,8 @@ Eso significa que una actualizacion normal no debe cambiar:
 
 ## Siguiente paso despues de install
 
-1. aplicar migraciones
-2. probar manualmente API y Worker
-3. crear `systemd` o servicio Windows
-4. validar `/health`
+1. arrancar la API
+2. dejar que la API aplique migraciones automaticamente
+3. probar manualmente API y Worker
+4. crear `systemd` o servicio Windows
+5. validar `/health`

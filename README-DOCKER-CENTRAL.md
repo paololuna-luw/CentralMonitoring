@@ -53,9 +53,7 @@ docker compose --env-file .env.central -f docker-compose.central.yml up -d --bui
 
 ## Migraciones
 
-El compose no ejecuta migraciones automaticamente.
-
-Aplica migraciones desde una maquina con `dotnet ef` y apuntando a la misma DB o agrega luego un job/container dedicado para eso.
+La API aplica migraciones automaticamente al arrancar, así que el stack Docker ya no requiere ejecutar `dotnet ef` manualmente para una instalacion normal.
 
 ## Puertos
 
